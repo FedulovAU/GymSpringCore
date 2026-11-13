@@ -1,10 +1,13 @@
 package gym.data.storage;
 
 import java.util.*;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.atomic.AtomicLong;
 
 /**
  * Stores items in memory grouped by their class type.
  * Each class type has its own "baket" of items, which is a map of IDs to objects.
+ * Thread safe, allows concurrent access and modification of items.
  */
 public class MemStorage {
 
@@ -12,12 +15,12 @@ public class MemStorage {
      * Stores items of type EntityWithId<?> in a map, provide CRUD operations for them.
      */
     public static class Baket {
-        private final Map<Long, EntityWithId<?>> items;
-        private long nextId;
+        private final ConcurrentHashMap<Long, EntityWithId<?>> items;
+        private AtomicLong nextId;
 
         public Baket(){
-            items = new HashMap<>();
-            nextId = 0;
+            items = new ConcurrentHashMap<>();
+            nextId = new AtomicLong(0);
         }
 
         /**
@@ -31,7 +34,7 @@ public class MemStorage {
                 throw new IllegalArgumentException("Item already has an ID: " + item.id() +
                         ". Cannot add to storage, provide item with id == null.");
             }
-            long id = nextId++;
+            long id = nextId.incrementAndGet();
             EntityWithId<?> newItem = item.withId(id);
             items.put(id, newItem);
             return newItem;
@@ -47,17 +50,15 @@ public class MemStorage {
                         ". Cannot update storage, provide item with id != null.");
             }
 
-            if(!items.containsKey(item.id())){
+            if(items.replace(item.id(), item) == null){
                 throw new IllegalArgumentException("Item with ID " + item.id() + " does not exist in storage.");
             }
-            items.put(item.id(), item);
         }
 
         public void delete(long id){
-            if(!items.containsKey(id)){
+            if(items.remove(id) == null){;
                 throw new IllegalArgumentException("Item with ID " + id + " does not exist in storage.");
             }
-            items.remove(id);
         }
 
         public List<EntityWithId<?>> getAll(){
@@ -74,10 +75,10 @@ public class MemStorage {
         }
     }
 
-    private final Map<Class<?>, Baket> bakets;
+    private final ConcurrentHashMap<Class<?>, Baket> bakets;
 
     public MemStorage(){
-        bakets = new HashMap<>();
+        bakets = new ConcurrentHashMap<>();
     }
 
     /**
@@ -85,11 +86,12 @@ public class MemStorage {
      * @param type, item class type, used to determine which baket to store the item in.
      * @param item, item.id must be null, indicating that the item is new. Providing item with id != null will result in an exception.
      * @param <T>, item class type, must implement EntityWithId<T> interface.
+     * @return the item that was added, with its ID set to the newly assigned unique ID.
      */
-    public <T extends EntityWithId<T>> void addItem(Class<T> type, T item){
-        bakets
+    public <T extends EntityWithId<T>> T addItem(Class<T> type, T item){
+        return type.cast(bakets
                 .computeIfAbsent(type, t -> new Baket())
-                .add(item);
+                .add(item));
     }
 
     /**
@@ -99,7 +101,7 @@ public class MemStorage {
      * @param <T>, item class type, must implement EntityWithId<T> interface.
      * @return an Optional containing the item if found, or an empty Optional if not found.
      */
-    public <T> Optional<T> getItem(Class<T> type, Long id){
+    public <T> Optional<T> getItem(Class<T> type, long id){
         Baket baket = bakets.get(type);
         if (baket == null) return Optional.empty();
         return baket.get(id).map(type::cast);
@@ -113,7 +115,7 @@ public class MemStorage {
      * @param item the item to update
      * @throws IllegalArgumentException if no storage bucket exists for {@code type}
      */
-    public void updateItem(Class<?> type, EntityWithId<?> item){
+    public <T extends EntityWithId<T>> void updateItem(Class<T> type, EntityWithId<T> item){
         Baket baket = bakets.get(type);
         if (baket == null) {
             throw new IllegalArgumentException("No items of type " + type.getName() + " found in storage.");
@@ -128,7 +130,7 @@ public class MemStorage {
      * @param id the ID of the item to delete
      * @throws IllegalArgumentException if no storage bucket exists for {@code type}
      */
-    public void deleteItem(Class<?> type, long id){
+    public <T> void deleteItem(Class<T> type, long id){
         Baket baket = bakets.get(type);
         if (baket == null) {
             throw new IllegalArgumentException("No items of type " + type.getName() + " found in storage.");
