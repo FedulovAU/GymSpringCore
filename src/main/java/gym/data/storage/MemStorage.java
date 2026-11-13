@@ -1,5 +1,7 @@
 package gym.data.storage;
 
+import org.springframework.stereotype.Component;
+
 import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicLong;
@@ -9,6 +11,7 @@ import java.util.concurrent.atomic.AtomicLong;
  * Each class type has its own "baket" of items, which is a map of IDs to objects.
  * Thread safe, allows concurrent access and modification of items.
  */
+@Component
 public class MemStorage {
 
     /**
@@ -105,6 +108,12 @@ public class MemStorage {
         Baket baket = bakets.get(type);
         if (baket == null) return Optional.empty();
         return baket.get(id).map(type::cast);
+    }
+
+    public <T extends EntityWithId<T>> List<T> getAllItems(Class<T> type){
+        Baket baket = bakets.get(type);
+        if (baket == null) return List.of();
+        return baket.getAll().stream().map(type::cast).toList();
     }
 
 
