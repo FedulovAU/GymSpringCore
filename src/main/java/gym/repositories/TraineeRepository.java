@@ -6,6 +6,7 @@ import org.springframework.stereotype.Repository;
 
 import java.util.List;
 import java.util.Optional;
+import java.util.function.UnaryOperator;
 
 @Repository
 public class TraineeRepository {
@@ -24,23 +25,15 @@ public class TraineeRepository {
         return storage.getAllItems(TraineeEntity.class);
     }
 
-    public void updateTrainee(TraineeEntity trainee){
-        storage.updateItem(TraineeEntity.class, trainee);
-    }
-
     /**
-     * Deactivates a trainee by their ID.
-     * @param id the unique identifier of the trainee to be deactivated.
-     * @return the updated TraineeEntity with isActive set to false.
+     * Atomically updates a trainee.
+     * @param id the unique identifier of the trainee to update.
+     * @param updater receives the current trainee and returns its new version, must keep the ID.
+     * @return the updated trainee.
+     * @throws IllegalArgumentException if the trainee doesn't exist.
      */
-    public TraineeEntity deactivateById(long id){
-        return storage.getItem(TraineeEntity.class, id)
-                .map(trainee -> {
-                    var updatedTrainee = trainee.withUser(trainee.user().withActive(false));
-                    storage.updateItem(TraineeEntity.class, updatedTrainee);
-                    return updatedTrainee;
-                })
-                .orElseThrow(() -> new IllegalArgumentException("Can't deactivate trainee, entity not found with ID: " + id));
+    public TraineeEntity update(long id, UnaryOperator<TraineeEntity> updater){
+        return storage.updateItem(TraineeEntity.class, id, updater);
     }
 
     public Optional<TraineeEntity> getById(long id){

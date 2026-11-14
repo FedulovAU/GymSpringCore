@@ -5,6 +5,7 @@ import org.springframework.stereotype.Component;
 import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicLong;
+import java.util.function.UnaryOperator;
 
 /**
  * Stores items in memory grouped by their class type.
@@ -44,22 +45,31 @@ public class MemStorage {
         }
 
         /**
-         * Updates an existing item in the baket.
-         * @param item, must have a non-null ID that corresponds to an existing item in the baket.
+         * Atomically updates an existing item in the baket.
+         * The read-modify-write runs under the map's per-key lock, so concurrent updates
+         * of the same item can't overwrite each other.
+         * @param id, ID of the item to update.
+         * @param updater, receives the current item and returns its new version.
+         *                 Must be short, must not access this storage and must keep the item's ID.
+         * @return the new version of the item.
          */
-        public void update(EntityWithId<?> item){
-            if(item.id() == null){
-                throw new IllegalArgumentException("Item does not have an ID: " + item.id() +
-                        ". Cannot update storage, provide item with id != null.");
-            }
+        public EntityWithId<?> update(long id, UnaryOperator<EntityWithId<?>> updater){
+            EntityWithId<?> updated = items.computeIfPresent(id, (key, current) -> {
+                EntityWithId<?> next = updater.apply(current);
+                if(next == null || next.id() == null || next.id() != id){
+                    throw new IllegalArgumentException("Updater must return an item with the same ID: " + id + ".");
+                }
+                return next;
+            });
 
-            if(items.replace(item.id(), item) == null){
-                throw new IllegalArgumentException("Item with ID " + item.id() + " does not exist in storage.");
+            if(updated == null){
+                throw new IllegalArgumentException("Item with ID " + id + " does not exist in storage.");
             }
+            return updated;
         }
 
         public void delete(long id){
-            if(items.remove(id) == null){;
+            if(items.remove(id) == null){
                 throw new IllegalArgumentException("Item with ID " + id + " does not exist in storage.");
             }
         }
@@ -118,18 +128,21 @@ public class MemStorage {
 
 
     /**
-     * Updates an item in the storage bucket corresponding to its class type.
+     * Atomically updates an item in the storage bucket corresponding to its class type.
      *
      * @param type the class type used to locate the item's storage bucket
-     * @param item the item to update
-     * @throws IllegalArgumentException if no storage bucket exists for {@code type}
+     * @param id the ID of the item to update
+     * @param updater receives the current item and returns its new version, must keep the item's ID.
+     *                Runs under a lock: keep it short and don't access this storage from it.
+     * @return the new version of the item
+     * @throws IllegalArgumentException if no storage bucket exists for {@code type} or the item doesn't exist
      */
-    public <T extends EntityWithId<T>> void updateItem(Class<T> type, EntityWithId<T> item){
+    public <T extends EntityWithId<T>> T updateItem(Class<T> type, long id, UnaryOperator<T> updater){
         Baket baket = bakets.get(type);
         if (baket == null) {
             throw new IllegalArgumentException("No items of type " + type.getName() + " found in storage.");
         }
-        baket.update(item);
+        return type.cast(baket.update(id, current -> updater.apply(type.cast(current))));
     }
 
     /**

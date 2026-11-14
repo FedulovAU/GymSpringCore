@@ -44,7 +44,7 @@ public class TraineeService {
         String userName = duplicateNameGenerator.generateUniqueUserName(request.firstName(), request.lastName());
 
         // Store new trainee.
-        TraineeEntity traineeEntity = traineeRepository.add(new gym.data.entities.TraineeEntity(
+        TraineeEntity traineeEntity = traineeRepository.add(new TraineeEntity(
                 null,
                 new UserData(
                         request.firstName(),
@@ -62,56 +62,46 @@ public class TraineeService {
     /**
      * Updates an existing trainee's information.
      * @param request the request containing updated trainee details.
-     * @return the updated trainee, with unique username if first name or last name was changed.
+     * The username is the login and stays the same, even if first name or last name is changed.
+     * @return the updated trainee.
      */
     public Trainee updateTrainee(UpdateTrainee request) {
         requestValidator.validateUpdateTraineeRequest(request);
 
-        // Retrieve existing trainee.
-        TraineeEntity existingTrainee = traineeRepository.getById(request.id())
-                .orElseThrow(() -> new IllegalArgumentException("Trainee not found with ID: " + request.id()));
+        // Read-modify-write runs atomically inside the storage.
+        TraineeEntity updatedTrainee = traineeRepository.update(request.id(), existing -> applyUpdate(existing, request));
 
-        TraineeEntity updatedTrainee = existingTrainee;
-        var updatedUserData = existingTrainee.user();
-
-        // Update fields if provided.
-        boolean wasUserNameUpdated = false;
-
-        if (request.firstName() != null && !request.firstName().equals(updatedUserData.firstName())) {
-            updatedUserData = updatedUserData.withFirstName(request.firstName());
-            wasUserNameUpdated = true;
-        }
-        if (request.lastName() != null && !request.lastName().equals(updatedUserData.lastName())) {
-            updatedUserData = updatedUserData.withLastName(request.lastName());
-            wasUserNameUpdated = true;
-        }
-
-        // If first name or last name was updated, generate a new unique username.
-        if(wasUserNameUpdated) {
-            // Generate a new unique username if first name or last name has changed.
-            String newUserName = duplicateNameGenerator.generateUniqueUserName(updatedUserData.firstName(), updatedUserData.lastName());
-            updatedUserData = updatedUserData.withUserName(newUserName);
-        }
-        updatedTrainee = updatedTrainee.withUser(updatedUserData);
-
-        // Update birth date if needed.
-        if (request.birthDate() != null) {
-            updatedTrainee = updatedTrainee.withBirthDate(request.birthDate());
-        }
-
-        // Save updated trainee.
-        traineeRepository.updateTrainee(updatedTrainee);
-
-        // Map updated entity to the result.
         return mapTrainee(updatedTrainee);
     }
 
     /**
-     * Deactivates a trainee by their ID.
+     * Soft deletes a trainee by their ID: the trainee stays in storage, but is marked as inactive.
      * @param id the unique identifier of the trainee to be deactivated.
+     * @return the deactivated trainee.
      */
     public Trainee deactivateTrainee(long id) {
-        return mapTrainee(traineeRepository.deactivateById(id));
+        TraineeEntity deactivated = traineeRepository.update(id, trainee -> trainee.withUser(trainee.user().withActive(false)));
+        return mapTrainee(deactivated);
+    }
+
+    /**
+     * Applies the provided (non-null) fields of the request to the trainee. Username is never changed.
+     */
+    private static TraineeEntity applyUpdate(TraineeEntity trainee, UpdateTrainee request) {
+        var userData = trainee.user();
+
+        if (request.firstName() != null) {
+            userData = userData.withFirstName(request.firstName());
+        }
+        if (request.lastName() != null) {
+            userData = userData.withLastName(request.lastName());
+        }
+
+        var updated = trainee.withUser(userData);
+        if (request.birthDate() != null) {
+            updated = updated.withBirthDate(request.birthDate());
+        }
+        return updated;
     }
 
     /**
