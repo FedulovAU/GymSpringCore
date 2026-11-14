@@ -35,7 +35,8 @@ public class MemStorage {
          * Adds an item to the baket and assigns it a unique ID.
          * @param item, the item to add, item.id must be null, indicating that the item is new.
          * @return the item that was added, with its ID set to the newly assigned unique ID.
-         * @throws ItemAlreadyExistsException if the item already has an ID.
+         * @throws IllegalArgumentException if the item already has an ID.
+         * @throws ItemAlreadyExistsException if the generated ID is already taken (indicates a bug).
          */
         public EntityWithId<?> add(EntityWithId<?> item){
             if(item.id() != null){
@@ -113,7 +114,8 @@ public class MemStorage {
      * @param item, item.id must be null, indicating that the item is new.
      * @param <T>, item class type, must implement EntityWithId<T> interface.
      * @return the item that was added, with its ID set to the newly assigned unique ID.
-     * @throws ItemAlreadyExistsException if the item already has an ID.
+     * @throws IllegalArgumentException if the item already has an ID.
+     * @throws ItemAlreadyExistsException if the generated ID is already taken (indicates a bug).
      */
     public <T extends EntityWithId<T>> T addItem(Class<T> type, T item){
         return type.cast(bakets

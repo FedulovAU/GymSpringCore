@@ -12,6 +12,7 @@ import gym.services.helpers.PasswordGenerator;
 import gym.services.mapper.EntityMapper;
 import org.springframework.stereotype.Service;
 
+import java.util.List;
 import java.util.Optional;
 
 /**
@@ -92,6 +93,10 @@ public class TrainerService {
      */
     public Optional<Trainer> findTrainerById(long id) {
         return trainerRepository.getById(id).map(EntityMapper::toTrainer);
+    }
+
+    public List<Trainer> getAll() {
+        return trainerRepository.getAll().stream().map(EntityMapper::toTrainer).toList();
     }
 
     /**

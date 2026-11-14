@@ -4,6 +4,7 @@ import gym.data.entities.TraineeEntity;
 import gym.data.entities.common.UserData;
 import gym.services.dto.requests.CreateTrainee;
 import gym.services.dto.requests.UpdateTrainee;
+import gym.services.dto.responses.Trainer;
 import gym.services.validation.RequestValidator;
 import gym.services.dto.responses.Trainee;
 import gym.repositories.TraineeRepository;
@@ -12,6 +13,7 @@ import gym.services.helpers.PasswordGenerator;
 import gym.services.mapper.EntityMapper;
 import org.springframework.stereotype.Service;
 
+import java.util.List;
 import java.util.Optional;
 
 @Service
@@ -83,6 +85,19 @@ public class TraineeService {
     }
 
     /**
+     * Finds a trainee by their ID.
+     * @param id
+     * @return an Optional containing the Trainee if found, or empty if not found.
+     */
+    public Optional<Trainee> findTraineeById(long id) {
+        return traineeRepository.getById(id).map(EntityMapper::toTrainee);
+    }
+
+    public List<Trainee> getAll() {
+        return traineeRepository.getAll().stream().map(EntityMapper::toTrainee).toList();
+    }
+
+    /**
      * Applies the provided (non-null) fields of the request to the trainee. Username is never changed.
      */
     private static TraineeEntity applyUpdate(TraineeEntity trainee, UpdateTrainee request) {
@@ -100,14 +115,5 @@ public class TraineeService {
             updated = updated.withBirthDate(request.birthDate());
         }
         return updated;
-    }
-
-    /**
-     * Finds a trainee by their ID.
-     * @param id
-     * @return an Optional containing the Trainee if found, or empty if not found.
-     */
-    public Optional<Trainee> findTraineeById(long id) {
-        return traineeRepository.getById(id).map(EntityMapper::toTrainee);
     }
 }
