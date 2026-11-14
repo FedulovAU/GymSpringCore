@@ -1,37 +1,48 @@
 package gym.services;
 
 import gym.data.entities.TraineeEntity;
+import gym.data.entities.common.UserData;
 import gym.dto.requests.CreateTrainee;
+import gym.dto.requests.UpdateTrainee;
+import gym.dto.requests.validation.RequestValidator;
 import gym.dto.responses.Trainee;
 import gym.repositories.TraineeRepository;
 import gym.services.helpers.DuplicateNameGenerator;
 import org.springframework.stereotype.Service;
 
+import java.util.Optional;
+
 @Service
 public class TraineeService {
     private final TraineeRepository traineeRepository;
-    private final String userNamePattern = "\\p{L}+";
-
     private final DuplicateNameGenerator duplicateNameGenerator;
+    private final RequestValidator requestValidator;
 
     public TraineeService(
             TraineeRepository traineeRepository,
-            DuplicateNameGenerator duplicateNameGenerator) {
+            DuplicateNameGenerator duplicateNameGenerator,
+            RequestValidator requestValidator) {
         this.traineeRepository = traineeRepository;
         this.duplicateNameGenerator = duplicateNameGenerator;
+        this.requestValidator = requestValidator;
     }
 
-    public Trainee CreateTrainee(CreateTrainee request) {
+    /**
+     * Creates a new trainee.
+     * @param request the request containing trainee details.
+     * @return the created trainee, with unique username and assigned ID.
+     */
+    public Trainee createTrainee(CreateTrainee request) {
         // Check for null or invalid fields in the request.
-        validateCreateTraineeRequest(request);
+        requestValidator.validateCreateTraineeRequest(request);
 
         // Create unique username.
         String userName = duplicateNameGenerator.generateUniqueUserName(request.firstName(), request.lastName());
 
         // Store new trainee.
-        TraineeEntity traineeEntity = traineeRepository.addTrainee(new gym.data.entities.TraineeEntity(
+        TraineeEntity traineeEntity = traineeRepository.add(new gym.data.entities.TraineeEntity(
                 null,
-                new gym.data.entities.User(
+                new UserData(
                         request.firstName(),
                         request.lastName(),
                         userName,
@@ -41,43 +52,95 @@ public class TraineeService {
         ));
 
         // Map stored entity to the result.
-        return new Trainee(
-                traineeEntity.id(),
-                traineeEntity.user().firstName(),
-                traineeEntity.user().lastName(),
-                traineeEntity.user().userName(),
-                traineeEntity.user().isActive(),
-                traineeEntity.birthDate());
+        return mapTrainee(traineeEntity);
     }
 
-    private void validateCreateTraineeRequest(CreateTrainee request) {
-        if(request == null) {
-            throw new IllegalArgumentException("CreateTrainee request cannot be null.");
+    /**
+     * Updates an existing trainee's information.
+     * @param request the request containing updated trainee details.
+     * @return the updated trainee, with unique username if first name or last name was changed.
+     */
+    public Trainee updateTrainee(UpdateTrainee request) {
+        requestValidator.validateUpdateTraineeRequest(request);
+
+        // Retrieve existing trainee.
+        TraineeEntity existingTrainee = traineeRepository.getById(request.id())
+                .orElseThrow(() -> new IllegalArgumentException("Trainee not found with ID: " + request.id()));
+
+        TraineeEntity updatedTrainee = existingTrainee;
+        var updatedUserData = existingTrainee.user();
+
+        // Update fields if provided.
+        boolean wasUserDataUpdated = false;
+        boolean wasUserNameUpdated = false;
+
+        if (request.firstName() != null && !request.firstName().equals(updatedUserData.firstName())) {
+            updatedUserData = updatedUserData.withFirstName(request.firstName());
+            wasUserDataUpdated = true;
+            wasUserNameUpdated = true;
+        }
+        if (request.lastName() != null && !request.lastName().equals(updatedUserData.lastName())) {
+            updatedUserData = updatedUserData.withLastName(request.lastName());
+            wasUserDataUpdated = true;
+            wasUserNameUpdated = true;
+        }
+        if (request.password() != null && !request.password().equals(updatedUserData.password())) {
+            updatedUserData = updatedUserData.withPassword(request.password());
+            wasUserDataUpdated = true;
         }
 
-        if (request.firstName() == null || request.firstName().isBlank()) {
-            throw new IllegalArgumentException("First name cannot be null or blank.");
-        }
-        if(!request.firstName().matches(userNamePattern)){
-            throw new IllegalArgumentException("First name contains invalid characters.");
-        }
-
-        if (request.lastName() == null || request.lastName().isBlank()) {
-            throw new IllegalArgumentException("Last name cannot be null or blank.");
-        }
-        if(!request.lastName().matches(userNamePattern)){
-            throw new IllegalArgumentException("Last name contains invalid characters.");
+        // If first name or last name was updated, generate a new unique username.
+        if(wasUserNameUpdated) {
+            // Generate a new unique username if first name or last name has changed.
+            String newUserName = duplicateNameGenerator.generateUniqueUserName(updatedUserData.firstName(), updatedUserData.lastName());
+            updatedUserData = updatedUserData.withUserName(newUserName);
         }
 
-        if (request.password() == null || request.password().isBlank()) {
-            throw new IllegalArgumentException("Password cannot be null or blank.");
+        // Update userdata if needed.
+        if(wasUserDataUpdated) {
+            updatedTrainee = updatedTrainee.withUser(updatedUserData);
         }
-        if (request.birthDate() == null) {
-            throw new IllegalArgumentException("Birth date cannot be null.");
+        // Update birth date if needed.
+        if (request.birthDate() != null) {
+            updatedTrainee = updatedTrainee.withBirthDate(request.birthDate());
         }
 
-        if(request.birthDate().isAfter(java.time.LocalDate.now())) {
-            throw new IllegalArgumentException("Birth date cannot be in the future.");
-        }
+        // Save updated trainee.
+        traineeRepository.updateTrainee(updatedTrainee);
+
+        // Map updated entity to the result.
+        return mapTrainee(updatedTrainee);
+    }
+
+    /**
+     * Deactivates a trainee by their ID.
+     * @param id the unique identifier of the trainee to be deactivated.
+     */
+    public Trainee deactivateTrainee(long id) {
+        return mapTrainee(traineeRepository.deactivateById(id));
+    }
+
+    /**
+     * Finds a trainee by their ID.
+     * @param id
+     * @return an Optional containing the Trainee if found, or empty if not found.
+     */
+    public Optional<Trainee> findTraineeById(long id) {
+        return traineeRepository.getById(id).map(this::mapTrainee);
+    }
+
+    /**
+     * Maps a TraineeEntity to a Trainee DTO. Avoids exposing sensitive information like password.
+     * @param trainee the TraineeEntity to be mapped.
+     * @return the corresponding Trainee DTO.
+     */
+    private Trainee mapTrainee(TraineeEntity trainee) {
+        return new Trainee(
+                trainee.id(),
+                trainee.user().firstName(),
+                trainee.user().lastName(),
+                trainee.user().userName(),
+                trainee.user().isActive(),
+                trainee.birthDate());
     }
 }
