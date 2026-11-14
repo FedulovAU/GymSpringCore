@@ -1,5 +1,7 @@
 package gym.data.storage;
 
+import gym.data.storage.exceptions.ItemAlreadyExistsException;
+import gym.data.storage.exceptions.ItemNotFoundException;
 import org.springframework.stereotype.Component;
 
 import java.util.*;
@@ -19,10 +21,12 @@ public class MemStorage {
      * Stores items of type EntityWithId<?> in a map, provide CRUD operations for them.
      */
     public static class Baket {
+        private final Class<?> type;
         private final ConcurrentHashMap<Long, EntityWithId<?>> items;
-        private AtomicLong nextId;
+        private final AtomicLong nextId;
 
-        public Baket(){
+        public Baket(Class<?> type){
+            this.type = type;
             items = new ConcurrentHashMap<>();
             nextId = new AtomicLong(0);
         }
@@ -30,8 +34,8 @@ public class MemStorage {
         /**
          * Adds an item to the baket and assigns it a unique ID.
          * @param item, the item to add, item.id must be null, indicating that the item is new.
-         *              Providing item with id != null will result in an exception.
          * @return the item that was added, with its ID set to the newly assigned unique ID.
+         * @throws ItemAlreadyExistsException if the item already has an ID.
          */
         public EntityWithId<?> add(EntityWithId<?> item){
             if(item.id() != null){
@@ -40,7 +44,10 @@ public class MemStorage {
             }
             long id = nextId.incrementAndGet();
             EntityWithId<?> newItem = item.withId(id);
-            items.put(id, newItem);
+            // IDs come from an atomic counter, so a collision means a bug; never silently overwrite.
+            if(items.putIfAbsent(id, newItem) != null){
+                throw new ItemAlreadyExistsException(type, id);
+            }
             return newItem;
         }
 
@@ -52,6 +59,7 @@ public class MemStorage {
          * @param updater, receives the current item and returns its new version.
          *                 Must be short, must not access this storage and must keep the item's ID.
          * @return the new version of the item.
+         * @throws ItemNotFoundException if no item with this ID exists.
          */
         public EntityWithId<?> update(long id, UnaryOperator<EntityWithId<?>> updater){
             EntityWithId<?> updated = items.computeIfPresent(id, (key, current) -> {
@@ -63,14 +71,19 @@ public class MemStorage {
             });
 
             if(updated == null){
-                throw new IllegalArgumentException("Item with ID " + id + " does not exist in storage.");
+                throw new ItemNotFoundException(type, id);
             }
             return updated;
         }
 
+        /**
+         * Deletes an item from the baket.
+         * @param id, ID of the item to delete.
+         * @throws ItemNotFoundException if no item with this ID exists.
+         */
         public void delete(long id){
             if(items.remove(id) == null){
-                throw new IllegalArgumentException("Item with ID " + id + " does not exist in storage.");
+                throw new ItemNotFoundException(type, id);
             }
         }
 
@@ -97,13 +110,14 @@ public class MemStorage {
     /**
      * Stores an item in the appropriate baket based on its class type.
      * @param type, item class type, used to determine which baket to store the item in.
-     * @param item, item.id must be null, indicating that the item is new. Providing item with id != null will result in an exception.
+     * @param item, item.id must be null, indicating that the item is new.
      * @param <T>, item class type, must implement EntityWithId<T> interface.
      * @return the item that was added, with its ID set to the newly assigned unique ID.
+     * @throws ItemAlreadyExistsException if the item already has an ID.
      */
     public <T extends EntityWithId<T>> T addItem(Class<T> type, T item){
         return type.cast(bakets
-                .computeIfAbsent(type, t -> new Baket())
+                .computeIfAbsent(type, Baket::new)
                 .add(item));
     }
 
@@ -135,12 +149,12 @@ public class MemStorage {
      * @param updater receives the current item and returns its new version, must keep the item's ID.
      *                Runs under a lock: keep it short and don't access this storage from it.
      * @return the new version of the item
-     * @throws IllegalArgumentException if no storage bucket exists for {@code type} or the item doesn't exist
+     * @throws ItemNotFoundException if the item doesn't exist
      */
     public <T extends EntityWithId<T>> T updateItem(Class<T> type, long id, UnaryOperator<T> updater){
         Baket baket = bakets.get(type);
         if (baket == null) {
-            throw new IllegalArgumentException("No items of type " + type.getName() + " found in storage.");
+            throw new ItemNotFoundException(type, id);
         }
         return type.cast(baket.update(id, current -> updater.apply(type.cast(current))));
     }
@@ -150,12 +164,12 @@ public class MemStorage {
      *
      * @param type the class type used to locate the item's storage bucket
      * @param id the ID of the item to delete
-     * @throws IllegalArgumentException if no storage bucket exists for {@code type}
+     * @throws ItemNotFoundException if the item doesn't exist
      */
     public <T> void deleteItem(Class<T> type, long id){
         Baket baket = bakets.get(type);
         if (baket == null) {
-            throw new IllegalArgumentException("No items of type " + type.getName() + " found in storage.");
+            throw new ItemNotFoundException(type, id);
         }
         baket.delete(id);
     }
