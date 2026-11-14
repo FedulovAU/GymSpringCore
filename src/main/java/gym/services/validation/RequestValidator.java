@@ -1,17 +1,20 @@
-package gym.dto.requests.validation;
+package gym.services.validation;
 
-import gym.dto.requests.CreateTrainee;
-import gym.dto.requests.CreateTrainer;
-import gym.dto.requests.ScheduleTraining;
-import gym.dto.requests.UpdateTrainee;
-import gym.dto.requests.UpdateTrainer;
-import org.springframework.stereotype.Component;
+import gym.services.dto.requests.CreateTrainee;
+import gym.services.dto.requests.CreateTrainer;
+import gym.services.dto.requests.ScheduleTraining;
+import gym.services.dto.requests.UpdateTrainee;
+import gym.services.dto.requests.UpdateTrainer;
 
-@Component
-public class RequestValidator {
-    private final static String userNamePattern = "\\p{L}+";
+/**
+ * Validates service requests: checks that don't need storage access.
+ */
+public final class RequestValidator {
+    private static final String userNamePattern = "\\p{L}+";
 
-    public void validateUpdateTraineeRequest(UpdateTrainee request) {
+    private RequestValidator() {}
+
+    public static void validateUpdateTraineeRequest(UpdateTrainee request) {
         if(request == null) {
             throw new IllegalArgumentException("UpdateTrainee request cannot be null.");
         }
@@ -33,8 +36,7 @@ public class RequestValidator {
         }
     }
 
-
-    public void validateCreateTraineeRequest(CreateTrainee request) {
+    public static void validateCreateTraineeRequest(CreateTrainee request) {
         if(request == null) {
             throw new IllegalArgumentException("CreateTrainee request cannot be null.");
         }
@@ -62,7 +64,7 @@ public class RequestValidator {
         }
     }
 
-    public void validateCreateTrainerRequest(CreateTrainer request) {
+    public static void validateCreateTrainerRequest(CreateTrainer request) {
         if(request == null) {
             throw new IllegalArgumentException("CreateTrainer request cannot be null.");
         }
@@ -86,7 +88,7 @@ public class RequestValidator {
         }
     }
 
-    public void validateUpdateTrainerRequest(UpdateTrainer request) {
+    public static void validateUpdateTrainerRequest(UpdateTrainer request) {
         if(request == null) {
             throw new IllegalArgumentException("UpdateTrainer request cannot be null.");
         }
@@ -104,7 +106,7 @@ public class RequestValidator {
         }
     }
 
-    public void validateScheduleTrainingRequest(ScheduleTraining request) {
+    public static void validateScheduleTrainingRequest(ScheduleTraining request) {
         if(request == null) {
             throw new IllegalArgumentException("ScheduleTraining request cannot be null.");
         }

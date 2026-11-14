@@ -1,6 +1,6 @@
-package gym.dto.responses;
+package gym.services.dto.responses;
 
-import gym.dto.enums.TrainingType;
+import gym.services.dto.enums.TrainingType;
 
 public record Trainer(
         Long id,

@@ -1,6 +1,6 @@
-package gym.dto.requests;
+package gym.services.dto.requests;
 
-import gym.dto.enums.TrainingType;
+import gym.services.dto.enums.TrainingType;
 
 /**
  * Represents a request to create a new trainer.

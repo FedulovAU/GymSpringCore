@@ -1,4 +1,4 @@
-package gym.dto.responses;
+package gym.services.dto.responses;
 
 import java.time.LocalDate;
 

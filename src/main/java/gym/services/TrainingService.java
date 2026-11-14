@@ -3,16 +3,15 @@ package gym.services;
 import gym.data.entities.TraineeEntity;
 import gym.data.entities.TrainerEntity;
 import gym.data.entities.TrainingEntity;
-import gym.data.entities.enums.TrainingTypeEntity;
-import gym.dto.enums.TrainingType;
-import gym.dto.requests.ScheduleTraining;
-import gym.dto.requests.validation.RequestValidator;
-import gym.dto.responses.Training;
+import gym.services.dto.requests.ScheduleTraining;
+import gym.services.validation.RequestValidator;
+import gym.services.dto.responses.Training;
 import gym.repositories.TraineeRepository;
 import gym.repositories.TrainerRepository;
 import gym.repositories.TrainingRepository;
 import gym.services.exceptions.CannotScheduleTrainingException;
 import gym.services.helpers.KeyedLocks;
+import gym.services.mapper.EntityMapper;
 import org.springframework.stereotype.Service;
 
 import java.time.LocalDateTime;
@@ -29,7 +28,6 @@ public class TrainingService {
     private final TrainingRepository trainingRepository;
     private final TrainerRepository trainerRepository;
     private final TraineeRepository traineeRepository;
-    private final RequestValidator requestValidator;
 
     private final KeyedLocks trainerLocks = new KeyedLocks();
     private final KeyedLocks traineeLocks = new KeyedLocks();
@@ -37,12 +35,10 @@ public class TrainingService {
     public TrainingService(
             TrainingRepository trainingRepository,
             TrainerRepository trainerRepository,
-            TraineeRepository traineeRepository,
-            RequestValidator requestValidator) {
+            TraineeRepository traineeRepository) {
         this.trainingRepository = trainingRepository;
         this.trainerRepository = trainerRepository;
         this.traineeRepository = traineeRepository;
-        this.requestValidator = requestValidator;
     }
 
     /**
@@ -53,7 +49,7 @@ public class TrainingService {
      * or the training overlaps with an already scheduled training of the same trainer or trainee.
      */
     public Training scheduleTraining(ScheduleTraining request) {
-        requestValidator.validateScheduleTrainingRequest(request);
+        RequestValidator.validateScheduleTrainingRequest(request);
 
         // Lock order is always trainer first, then trainee, so two calls can't deadlock.
         ReentrantLock trainerLock = trainerLocks.get(request.trainerId());
@@ -77,7 +73,7 @@ public class TrainingService {
                         request.trainingDate(),
                         request.duration()));
 
-                return mapTraining(training);
+                return EntityMapper.toTraining(training);
             } finally {
                 traineeLock.unlock();
             }
@@ -99,7 +95,7 @@ public class TrainingService {
      * @return all trainings.
      */
     public List<Training> getAll() {
-        return trainingRepository.getAll().stream().map(this::mapTraining).toList();
+        return trainingRepository.getAll().stream().map(EntityMapper::toTraining).toList();
     }
 
     private TrainerEntity findActiveTrainer(long id) {
@@ -136,32 +132,5 @@ public class TrainingService {
                         + training.id() + " (" + existingStart + " - " + existingEnd + ").");
             }
         }
-    }
-
-    private Training mapTraining(TrainingEntity training) {
-        return new Training(
-                training.id(),
-                training.traineeId(),
-                training.trainerId(),
-                training.trainingName(),
-                fromTrainingTypeEntity(training.trainingType()),
-                training.trainingDate(),
-                training.trainingDuration());
-    }
-
-    /**
-     * Maps an entity training type to the DTO training type.
-     * @param trainingTypeEntity the entity training type, may be null.
-     * @return the corresponding DTO training type, or null if entity is null.
-     */
-    private static TrainingType fromTrainingTypeEntity(TrainingTypeEntity trainingTypeEntity) {
-        if (trainingTypeEntity == null) {
-            return null;
-        }
-        return switch (trainingTypeEntity) {
-            case Bodybuilding -> TrainingType.Bodybuilding;
-            case Crossfit -> TrainingType.Crossfit;
-            case Fitness -> TrainingType.Fitness;
-        };
     }
 }

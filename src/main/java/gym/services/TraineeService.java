@@ -2,13 +2,14 @@ package gym.services;
 
 import gym.data.entities.TraineeEntity;
 import gym.data.entities.common.UserData;
-import gym.dto.requests.CreateTrainee;
-import gym.dto.requests.UpdateTrainee;
-import gym.dto.requests.validation.RequestValidator;
-import gym.dto.responses.Trainee;
+import gym.services.dto.requests.CreateTrainee;
+import gym.services.dto.requests.UpdateTrainee;
+import gym.services.validation.RequestValidator;
+import gym.services.dto.responses.Trainee;
 import gym.repositories.TraineeRepository;
 import gym.services.helpers.DuplicateNameGenerator;
 import gym.services.helpers.PasswordGenerator;
+import gym.services.mapper.EntityMapper;
 import org.springframework.stereotype.Service;
 
 import java.util.Optional;
@@ -17,17 +18,14 @@ import java.util.Optional;
 public class TraineeService {
     private final TraineeRepository traineeRepository;
     private final DuplicateNameGenerator duplicateNameGenerator;
-    private final RequestValidator requestValidator;
     private final PasswordGenerator passwordGenerator;
 
     public TraineeService(
             TraineeRepository traineeRepository,
             DuplicateNameGenerator duplicateNameGenerator,
-            RequestValidator requestValidator,
             PasswordGenerator passwordGenerator) {
         this.traineeRepository = traineeRepository;
         this.duplicateNameGenerator = duplicateNameGenerator;
-        this.requestValidator = requestValidator;
         this.passwordGenerator = passwordGenerator;
     }
 
@@ -38,7 +36,7 @@ public class TraineeService {
      */
     public Trainee createTrainee(CreateTrainee request) {
         // Check for null or invalid fields in the request.
-        requestValidator.validateCreateTraineeRequest(request);
+        RequestValidator.validateCreateTraineeRequest(request);
 
         // Create unique username.
         String userName = duplicateNameGenerator.generateUniqueUserName(request.firstName(), request.lastName());
@@ -56,7 +54,7 @@ public class TraineeService {
         ));
 
         // Map stored entity to the result.
-        return mapTrainee(traineeEntity);
+        return EntityMapper.toTrainee(traineeEntity);
     }
 
     /**
@@ -66,12 +64,12 @@ public class TraineeService {
      * @return the updated trainee.
      */
     public Trainee updateTrainee(UpdateTrainee request) {
-        requestValidator.validateUpdateTraineeRequest(request);
+        RequestValidator.validateUpdateTraineeRequest(request);
 
         // Read-modify-write runs atomically inside the storage.
         TraineeEntity updatedTrainee = traineeRepository.update(request.id(), existing -> applyUpdate(existing, request));
 
-        return mapTrainee(updatedTrainee);
+        return EntityMapper.toTrainee(updatedTrainee);
     }
 
     /**
@@ -81,7 +79,7 @@ public class TraineeService {
      */
     public Trainee deactivateTrainee(long id) {
         TraineeEntity deactivated = traineeRepository.update(id, trainee -> trainee.withUser(trainee.user().withActive(false)));
-        return mapTrainee(deactivated);
+        return EntityMapper.toTrainee(deactivated);
     }
 
     /**
@@ -110,21 +108,6 @@ public class TraineeService {
      * @return an Optional containing the Trainee if found, or empty if not found.
      */
     public Optional<Trainee> findTraineeById(long id) {
-        return traineeRepository.getById(id).map(this::mapTrainee);
-    }
-
-    /**
-     * Maps a TraineeEntity to a Trainee DTO. Avoids exposing sensitive information like password.
-     * @param trainee the TraineeEntity to be mapped.
-     * @return the corresponding Trainee DTO.
-     */
-    private Trainee mapTrainee(TraineeEntity trainee) {
-        return new Trainee(
-                trainee.id(),
-                trainee.user().firstName(),
-                trainee.user().lastName(),
-                trainee.user().userName(),
-                trainee.user().isActive(),
-                trainee.birthDate());
+        return traineeRepository.getById(id).map(EntityMapper::toTrainee);
     }
 }

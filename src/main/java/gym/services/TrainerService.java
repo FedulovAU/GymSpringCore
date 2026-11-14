@@ -2,15 +2,14 @@ package gym.services;
 
 import gym.data.entities.TrainerEntity;
 import gym.data.entities.common.UserData;
-import gym.data.entities.enums.TrainingTypeEntity;
-import gym.dto.enums.TrainingType;
-import gym.dto.requests.CreateTrainer;
-import gym.dto.requests.UpdateTrainer;
-import gym.dto.requests.validation.RequestValidator;
-import gym.dto.responses.Trainer;
+import gym.services.dto.requests.CreateTrainer;
+import gym.services.dto.requests.UpdateTrainer;
+import gym.services.validation.RequestValidator;
+import gym.services.dto.responses.Trainer;
 import gym.repositories.TrainerRepository;
 import gym.services.helpers.DuplicateNameGenerator;
 import gym.services.helpers.PasswordGenerator;
+import gym.services.mapper.EntityMapper;
 import org.springframework.stereotype.Service;
 
 import java.util.Optional;
@@ -22,17 +21,14 @@ import java.util.Optional;
 public class TrainerService {
     private final TrainerRepository trainerRepository;
     private final DuplicateNameGenerator duplicateNameGenerator;
-    private final RequestValidator requestValidator;
     private final PasswordGenerator passwordGenerator;
 
     public TrainerService(
             TrainerRepository trainerRepository,
             DuplicateNameGenerator duplicateNameGenerator,
-            RequestValidator requestValidator,
             PasswordGenerator passwordGenerator) {
         this.trainerRepository = trainerRepository;
         this.duplicateNameGenerator = duplicateNameGenerator;
-        this.requestValidator = requestValidator;
         this.passwordGenerator = passwordGenerator;
     }
 
@@ -43,7 +39,7 @@ public class TrainerService {
      */
     public Trainer createTrainer(CreateTrainer request) {
         // Check for null or invalid fields in the request.
-        requestValidator.validateCreateTrainerRequest(request);
+        RequestValidator.validateCreateTrainerRequest(request);
 
         // Create unique username. The generator is shared with trainees, so usernames are unique across all users.
         String userName = duplicateNameGenerator.generateUniqueUserName(request.firstName(), request.lastName());
@@ -57,11 +53,11 @@ public class TrainerService {
                         userName,
                         passwordGenerator.generate(),
                         true),
-                toTrainingTypeEntity(request.specialization())
+                EntityMapper.toTrainingTypeEntity(request.specialization())
         ));
 
         // Map stored entity to the result.
-        return mapTrainer(trainerEntity);
+        return EntityMapper.toTrainer(trainerEntity);
     }
 
     /**
@@ -71,12 +67,12 @@ public class TrainerService {
      * @return the updated trainer.
      */
     public Trainer updateTrainer(UpdateTrainer request) {
-        requestValidator.validateUpdateTrainerRequest(request);
+        RequestValidator.validateUpdateTrainerRequest(request);
 
         // Read-modify-write runs atomically inside the storage.
         TrainerEntity updatedTrainer = trainerRepository.update(request.id(), existing -> applyUpdate(existing, request));
 
-        return mapTrainer(updatedTrainer);
+        return EntityMapper.toTrainer(updatedTrainer);
     }
 
     /**
@@ -86,7 +82,7 @@ public class TrainerService {
      */
     public Trainer deactivateTrainer(long id) {
         TrainerEntity deactivated = trainerRepository.update(id, trainer -> trainer.withUser(trainer.user().withActive(false)));
-        return mapTrainer(deactivated);
+        return EntityMapper.toTrainer(deactivated);
     }
 
     /**
@@ -95,7 +91,7 @@ public class TrainerService {
      * @return an Optional containing the Trainer if found, or empty if not found.
      */
     public Optional<Trainer> findTrainerById(long id) {
-        return trainerRepository.getById(id).map(this::mapTrainer);
+        return trainerRepository.getById(id).map(EntityMapper::toTrainer);
     }
 
     /**
@@ -113,50 +109,8 @@ public class TrainerService {
 
         var updated = trainer.withUser(userData);
         if (request.specialization() != null) {
-            updated = updated.withSpecialization(toTrainingTypeEntity(request.specialization()));
+            updated = updated.withSpecialization(EntityMapper.toTrainingTypeEntity(request.specialization()));
         }
         return updated;
-    }
-
-    /**
-     * Maps a TrainerEntity to a Trainer DTO. Avoids exposing sensitive information like password.
-     * @param trainer the TrainerEntity to be mapped.
-     * @return the corresponding Trainer DTO.
-     */
-    private Trainer mapTrainer(TrainerEntity trainer) {
-        return new Trainer(
-                trainer.id(),
-                trainer.user().firstName(),
-                trainer.user().lastName(),
-                trainer.user().userName(),
-                trainer.user().isActive(),
-                fromTrainingTypeEntity(trainer.specialization()));
-    }
-
-    /**
-     * Maps this DTO training type to the entity training type.
-     */
-    public TrainingTypeEntity toTrainingTypeEntity(TrainingType trainingType) {
-        return switch (trainingType) {
-            case Bodybuilding -> TrainingTypeEntity.Bodybuilding;
-            case Crossfit -> TrainingTypeEntity.Crossfit;
-            case Fitness -> TrainingTypeEntity.Fitness;
-        };
-    }
-
-    /**
-     * Maps an entity training type to the DTO training type.
-     * @param trainingTypeEntity the entity training type, may be null.
-     * @return the corresponding DTO training type, or null if entity is null.
-     */
-    private static TrainingType fromTrainingTypeEntity(TrainingTypeEntity trainingTypeEntity) {
-        if (trainingTypeEntity == null) {
-            return null;
-        }
-        return switch (trainingTypeEntity) {
-            case Bodybuilding -> TrainingType.Bodybuilding;
-            case Crossfit -> TrainingType.Crossfit;
-            case Fitness -> TrainingType.Fitness;
-        };
     }
 }

@@ -1,4 +1,4 @@
-package gym.dto.requests;
+package gym.services.dto.requests;
 
 import java.time.Duration;
 import java.time.LocalDateTime;
