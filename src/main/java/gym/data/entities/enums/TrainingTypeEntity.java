@@ -1,6 +1,6 @@
 package gym.data.entities.enums;
 
-public enum TrainingType {
+public enum TrainingTypeEntity {
     Bodybuilding(1),
     Crossfit(2),
     Fitness(3);
@@ -9,7 +9,7 @@ public enum TrainingType {
     public int getId() {
         return id;
     }
-    TrainingType(int id){
+    TrainingTypeEntity(int id){
         this.id = id;
     }
 }

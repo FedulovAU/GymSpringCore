@@ -1,6 +1,6 @@
 package gym.data.entities;
 
-import gym.data.entities.enums.TrainingType;
+import gym.data.entities.enums.TrainingTypeEntity;
 import gym.data.storage.EntityWithId;
 import lombok.With;
 
@@ -13,6 +13,6 @@ public record TrainingEntity(
         Long traineeId,
         Long trainerId,
         String trainingName,
-        TrainingType trainingType,
+        TrainingTypeEntity trainingType,
         LocalDateTime trainingDate,
         Duration trainingDuration) implements EntityWithId<TrainingEntity> {}
