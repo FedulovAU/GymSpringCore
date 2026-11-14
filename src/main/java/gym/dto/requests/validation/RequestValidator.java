@@ -50,9 +50,6 @@ public class RequestValidator {
             throw new IllegalArgumentException("Last name contains invalid characters.");
         }
 
-        if (request.password() == null || request.password().isBlank()) {
-            throw new IllegalArgumentException("Password cannot be null or blank.");
-        }
         if (request.birthDate() == null) {
             throw new IllegalArgumentException("Birth date cannot be null.");
         }

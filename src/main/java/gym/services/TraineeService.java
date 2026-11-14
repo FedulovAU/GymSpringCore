@@ -8,6 +8,7 @@ import gym.dto.requests.validation.RequestValidator;
 import gym.dto.responses.Trainee;
 import gym.repositories.TraineeRepository;
 import gym.services.helpers.DuplicateNameGenerator;
+import gym.services.helpers.PasswordGenerator;
 import org.springframework.stereotype.Service;
 
 import java.util.Optional;
@@ -17,14 +18,17 @@ public class TraineeService {
     private final TraineeRepository traineeRepository;
     private final DuplicateNameGenerator duplicateNameGenerator;
     private final RequestValidator requestValidator;
+    private final PasswordGenerator passwordGenerator;
 
     public TraineeService(
             TraineeRepository traineeRepository,
             DuplicateNameGenerator duplicateNameGenerator,
-            RequestValidator requestValidator) {
+            RequestValidator requestValidator,
+            PasswordGenerator passwordGenerator) {
         this.traineeRepository = traineeRepository;
         this.duplicateNameGenerator = duplicateNameGenerator;
         this.requestValidator = requestValidator;
+        this.passwordGenerator = passwordGenerator;
     }
 
     /**
@@ -46,7 +50,7 @@ public class TraineeService {
                         request.firstName(),
                         request.lastName(),
                         userName,
-                        request.password(),
+                        passwordGenerator.generate(),
                         true),
                 request.birthDate()
         ));
@@ -71,22 +75,15 @@ public class TraineeService {
         var updatedUserData = existingTrainee.user();
 
         // Update fields if provided.
-        boolean wasUserDataUpdated = false;
         boolean wasUserNameUpdated = false;
 
         if (request.firstName() != null && !request.firstName().equals(updatedUserData.firstName())) {
             updatedUserData = updatedUserData.withFirstName(request.firstName());
-            wasUserDataUpdated = true;
             wasUserNameUpdated = true;
         }
         if (request.lastName() != null && !request.lastName().equals(updatedUserData.lastName())) {
             updatedUserData = updatedUserData.withLastName(request.lastName());
-            wasUserDataUpdated = true;
             wasUserNameUpdated = true;
-        }
-        if (request.password() != null && !request.password().equals(updatedUserData.password())) {
-            updatedUserData = updatedUserData.withPassword(request.password());
-            wasUserDataUpdated = true;
         }
 
         // If first name or last name was updated, generate a new unique username.
@@ -95,11 +92,8 @@ public class TraineeService {
             String newUserName = duplicateNameGenerator.generateUniqueUserName(updatedUserData.firstName(), updatedUserData.lastName());
             updatedUserData = updatedUserData.withUserName(newUserName);
         }
+        updatedTrainee = updatedTrainee.withUser(updatedUserData);
 
-        // Update userdata if needed.
-        if(wasUserDataUpdated) {
-            updatedTrainee = updatedTrainee.withUser(updatedUserData);
-        }
         // Update birth date if needed.
         if (request.birthDate() != null) {
             updatedTrainee = updatedTrainee.withBirthDate(request.birthDate());
