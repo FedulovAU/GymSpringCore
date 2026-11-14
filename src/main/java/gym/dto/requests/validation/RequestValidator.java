@@ -2,6 +2,7 @@ package gym.dto.requests.validation;
 
 import gym.dto.requests.CreateTrainee;
 import gym.dto.requests.CreateTrainer;
+import gym.dto.requests.ScheduleTraining;
 import gym.dto.requests.UpdateTrainee;
 import gym.dto.requests.UpdateTrainer;
 import org.springframework.stereotype.Component;
@@ -100,6 +101,32 @@ public class RequestValidator {
 
         if (request.lastName() != null && !request.lastName().matches(userNamePattern)) {
             throw new IllegalArgumentException("Last name contains invalid characters.");
+        }
+    }
+
+    public void validateScheduleTrainingRequest(ScheduleTraining request) {
+        if(request == null) {
+            throw new IllegalArgumentException("ScheduleTraining request cannot be null.");
+        }
+
+        if (request.traineeId() <= 0) {
+            throw new IllegalArgumentException("Trainee ID must be a positive number.");
+        }
+
+        if (request.trainerId() <= 0) {
+            throw new IllegalArgumentException("Trainer ID must be a positive number.");
+        }
+
+        if (request.trainingName() == null || request.trainingName().isBlank()) {
+            throw new IllegalArgumentException("Training name cannot be null or blank.");
+        }
+
+        if (request.trainingDate() == null) {
+            throw new IllegalArgumentException("Training date cannot be null.");
+        }
+
+        if (request.duration() == null || request.duration().isNegative() || request.duration().isZero()) {
+            throw new IllegalArgumentException("Training duration must be positive.");
         }
     }
 }
