@@ -36,6 +36,10 @@ public class TraineeRepository {
         return storage.updateItem(TraineeEntity.class, id, updater);
     }
 
+    public TraineeEntity delete(long id){
+        return storage.deleteItem(TraineeEntity.class, id);
+    }
+
     public Optional<TraineeEntity> getById(long id){
         return storage.getItem(TraineeEntity.class, id);
     }

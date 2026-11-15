@@ -4,10 +4,11 @@ import gym.data.entities.TrainerEntity;
 import gym.data.entities.common.UserData;
 import gym.services.dto.requests.CreateTrainer;
 import gym.services.dto.requests.UpdateTrainer;
+import gym.services.synchronization.TrainerLocks;
 import gym.services.validation.RequestValidator;
 import gym.services.dto.responses.Trainer;
 import gym.repositories.TrainerRepository;
-import gym.services.helpers.DuplicateNameGenerator;
+import gym.services.helpers.UniqueUsernameGenerator;
 import gym.services.helpers.PasswordGenerator;
 import gym.services.mapper.EntityMapper;
 import org.springframework.stereotype.Service;
@@ -21,16 +22,19 @@ import java.util.Optional;
 @Service
 public class TrainerService {
     private final TrainerRepository trainerRepository;
-    private final DuplicateNameGenerator duplicateNameGenerator;
+    private final UniqueUsernameGenerator userNameGenerator;
     private final PasswordGenerator passwordGenerator;
+    private final TrainerLocks trainerLocks;
 
     public TrainerService(
             TrainerRepository trainerRepository,
-            DuplicateNameGenerator duplicateNameGenerator,
-            PasswordGenerator passwordGenerator) {
+            UniqueUsernameGenerator userNameGenerator,
+            PasswordGenerator passwordGenerator,
+            TrainerLocks trainerLocks) {
         this.trainerRepository = trainerRepository;
-        this.duplicateNameGenerator = duplicateNameGenerator;
+        this.userNameGenerator = userNameGenerator;
         this.passwordGenerator = passwordGenerator;
+        this.trainerLocks = trainerLocks;
     }
 
     /**
@@ -43,7 +47,7 @@ public class TrainerService {
         RequestValidator.validateCreateTrainerRequest(request);
 
         // Create unique username. The generator is shared with trainees, so usernames are unique across all users.
-        String userName = duplicateNameGenerator.generateUniqueUserName(request.firstName(), request.lastName());
+        String userName = userNameGenerator.generateUniqueUserName(request.firstName(), request.lastName());
 
         // Store new trainer.
         TrainerEntity trainerEntity = trainerRepository.add(new TrainerEntity(
@@ -82,8 +86,14 @@ public class TrainerService {
      * @return the deactivated trainer.
      */
     public Trainer deactivateTrainer(long id) {
-        TrainerEntity deactivated = trainerRepository.update(id, trainer -> trainer.withUser(trainer.user().withActive(false)));
-        return EntityMapper.toTrainer(deactivated);
+        var lock = trainerLocks.get(id);
+        lock.lock();
+        try {
+            TrainerEntity deactivated = trainerRepository.update(id, trainer -> trainer.withUser(trainer.user().withActive(false)));
+            return EntityMapper.toTrainer(deactivated);
+        } finally {
+            lock.unlock();
+        }
     }
 
     /**

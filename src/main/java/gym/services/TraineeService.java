@@ -2,13 +2,14 @@ package gym.services;
 
 import gym.data.entities.TraineeEntity;
 import gym.data.entities.common.UserData;
+import gym.repositories.TrainingRepository;
 import gym.services.dto.requests.CreateTrainee;
 import gym.services.dto.requests.UpdateTrainee;
-import gym.services.dto.responses.Trainer;
+import gym.services.synchronization.TraineeLocks;
 import gym.services.validation.RequestValidator;
 import gym.services.dto.responses.Trainee;
 import gym.repositories.TraineeRepository;
-import gym.services.helpers.DuplicateNameGenerator;
+import gym.services.helpers.UniqueUsernameGenerator;
 import gym.services.helpers.PasswordGenerator;
 import gym.services.mapper.EntityMapper;
 import org.springframework.stereotype.Service;
@@ -18,17 +19,23 @@ import java.util.Optional;
 
 @Service
 public class TraineeService {
+    private final TrainingRepository trainingRepository;
     private final TraineeRepository traineeRepository;
-    private final DuplicateNameGenerator duplicateNameGenerator;
+    private final UniqueUsernameGenerator userNameGenerator;
     private final PasswordGenerator passwordGenerator;
+    private final TraineeLocks traineeLocks;
 
     public TraineeService(
+            TrainingRepository trainingRepository,
             TraineeRepository traineeRepository,
-            DuplicateNameGenerator duplicateNameGenerator,
-            PasswordGenerator passwordGenerator) {
+            UniqueUsernameGenerator userNameGenerator,
+            PasswordGenerator passwordGenerator,
+            TraineeLocks traineeLocks) {
+        this.trainingRepository = trainingRepository;
         this.traineeRepository = traineeRepository;
-        this.duplicateNameGenerator = duplicateNameGenerator;
+        this.userNameGenerator = userNameGenerator;
         this.passwordGenerator = passwordGenerator;
+        this.traineeLocks = traineeLocks;
     }
 
     /**
@@ -41,7 +48,7 @@ public class TraineeService {
         RequestValidator.validateCreateTraineeRequest(request);
 
         // Create unique username.
-        String userName = duplicateNameGenerator.generateUniqueUserName(request.firstName(), request.lastName());
+        String userName = userNameGenerator.generateUniqueUserName(request.firstName(), request.lastName());
 
         // Store new trainee.
         TraineeEntity traineeEntity = traineeRepository.add(new TraineeEntity(
@@ -80,8 +87,33 @@ public class TraineeService {
      * @return the deactivated trainee.
      */
     public Trainee deactivateTrainee(long id) {
-        TraineeEntity deactivated = traineeRepository.update(id, trainee -> trainee.withUser(trainee.user().withActive(false)));
-        return EntityMapper.toTrainee(deactivated);
+        var lock = traineeLocks.get(id);
+        lock.lock();
+        try{
+            TraineeEntity deactivated = traineeRepository.update(id, trainee -> trainee.withUser(trainee.user().withActive(false)));
+            return EntityMapper.toTrainee(deactivated);
+        } finally {
+            lock.unlock();
+        }
+    }
+
+    /**
+     * Deletes a trainee by their ID, removes all training sessions for that trainee.
+     * @param id
+     * @return
+     */
+    public Trainee deleteTrainee(long id) {
+        var lock = traineeLocks.get(id);
+        lock.lock();
+        try {
+            trainingRepository.getByTraineeId(id).forEach(training -> trainingRepository.deleteById(training.id()));
+            // Delete trainee the last, so if some training is impossible to delete, trainee remains, and we can retry and do clean up.
+            // Otherwise, we may delete trainee, but not all trainings, leaving them orphaned.
+            TraineeEntity deleted = traineeRepository.delete(id);
+            return EntityMapper.toTrainee(deleted);
+        } finally {
+            lock.unlock();
+        }
     }
 
     /**

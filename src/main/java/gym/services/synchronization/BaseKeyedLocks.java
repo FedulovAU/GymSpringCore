@@ -1,4 +1,4 @@
-package gym.services.helpers;
+package gym.services.synchronization;
 
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.locks.ReentrantLock;
@@ -8,10 +8,10 @@ import java.util.concurrent.locks.ReentrantLock;
  * Usefull for synchronizing operations on the same entity (e.g. updating a trainer)
  * while allowing concurrent operations on different entities.
  */
-public class KeyedLocks {
-    private final ConcurrentHashMap<Long, ReentrantLock> locks = new ConcurrentHashMap<>();
+public abstract class BaseKeyedLocks<TKey> {
+    private final ConcurrentHashMap<TKey, ReentrantLock> locks = new ConcurrentHashMap<>();
 
-    public ReentrantLock get(long key) {
+    public ReentrantLock get(TKey key) {
         return locks.computeIfAbsent(key, k -> new ReentrantLock());
     }
 }

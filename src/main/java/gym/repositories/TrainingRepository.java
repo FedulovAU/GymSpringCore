@@ -45,7 +45,7 @@ public class TrainingRepository {
      * @param id the unique identifier of the training to delete.
      * @throws gym.data.storage.exceptions.ItemNotFoundException if the training doesn't exist.
      */
-    public void delete(long id){
-        storage.deleteItem(TrainingEntity.class, id);
+    public TrainingEntity deleteById(long id){
+        return storage.deleteItem(TrainingEntity.class, id);
     }
 }

@@ -4,13 +4,14 @@ import gym.data.entities.TraineeEntity;
 import gym.data.entities.TrainerEntity;
 import gym.data.entities.TrainingEntity;
 import gym.services.dto.requests.ScheduleTraining;
+import gym.services.synchronization.TraineeLocks;
+import gym.services.synchronization.TrainerLocks;
 import gym.services.validation.RequestValidator;
 import gym.services.dto.responses.Training;
 import gym.repositories.TraineeRepository;
 import gym.repositories.TrainerRepository;
 import gym.repositories.TrainingRepository;
 import gym.services.exceptions.CannotScheduleTrainingException;
-import gym.services.helpers.KeyedLocks;
 import gym.services.mapper.EntityMapper;
 import org.springframework.stereotype.Service;
 
@@ -29,16 +30,21 @@ public class TrainingService {
     private final TrainerRepository trainerRepository;
     private final TraineeRepository traineeRepository;
 
-    private final KeyedLocks trainerLocks = new KeyedLocks();
-    private final KeyedLocks traineeLocks = new KeyedLocks();
+    private final TrainerLocks trainerLocks;
+    private final TraineeLocks traineeLocks;
 
     public TrainingService(
             TrainingRepository trainingRepository,
             TrainerRepository trainerRepository,
-            TraineeRepository traineeRepository) {
+            TraineeRepository traineeRepository,
+            TrainerLocks trainerLocks,
+            TraineeLocks traineeLocks) {
+
         this.trainingRepository = trainingRepository;
         this.trainerRepository = trainerRepository;
         this.traineeRepository = traineeRepository;
+        this.traineeLocks = traineeLocks;
+        this.trainerLocks = trainerLocks;
     }
 
     /**
@@ -86,9 +92,10 @@ public class TrainingService {
      * Removes a training by its ID.
      * @param id the unique identifier of the training to remove.
      * @throws gym.data.storage.exceptions.ItemNotFoundException if the training doesn't exist.
+     * @return the removed training.
      */
-    public void removeTraining(long id) {
-        trainingRepository.delete(id);
+    public Training removeTraining(long id) {
+        return EntityMapper.toTraining(trainingRepository.deleteById(id));
     }
 
     /**

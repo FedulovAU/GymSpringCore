@@ -81,11 +81,14 @@ public class MemStorage {
          * Deletes an item from the baket.
          * @param id, ID of the item to delete.
          * @throws ItemNotFoundException if no item with this ID exists.
+         * @return the deleted item.
          */
-        public void delete(long id){
-            if(items.remove(id) == null){
+        public EntityWithId<?> delete(long id){
+            EntityWithId<?> removed = items.remove(id);
+            if(removed == null){
                 throw new ItemNotFoundException(type, id);
             }
+            return removed;
         }
 
         public List<EntityWithId<?>> getAll(){
@@ -167,12 +170,13 @@ public class MemStorage {
      * @param type the class type used to locate the item's storage bucket
      * @param id the ID of the item to delete
      * @throws ItemNotFoundException if the item doesn't exist
+     * @return the deleted item
      */
-    public <T> void deleteItem(Class<T> type, long id){
+    public <T> T deleteItem(Class<T> type, long id){
         Baket baket = bakets.get(type);
         if (baket == null) {
             throw new ItemNotFoundException(type, id);
         }
-        baket.delete(id);
+        return type.cast(baket.delete(id));
     }
 }

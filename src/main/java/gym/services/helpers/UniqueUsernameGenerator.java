@@ -10,10 +10,10 @@ import java.util.concurrent.atomic.AtomicLong;
  * by adding a number to the end of the username.
  */
 @Component
-public class DuplicateNameGenerator {
+public class UniqueUsernameGenerator {
    private final ConcurrentHashMap<String, AtomicLong> duplicatesTracker;
 
-   public DuplicateNameGenerator(){
+   public UniqueUsernameGenerator(){
        duplicatesTracker = new ConcurrentHashMap<>();
    }
 
