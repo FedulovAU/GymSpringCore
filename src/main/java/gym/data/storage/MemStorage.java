@@ -36,8 +36,6 @@ public class MemStorage {
          * Adds an item to the baket and assigns it a unique ID.
          * @param item, the item to add, item.id must be null, indicating that the item is new.
          * @return the item that was added, with its ID set to the newly assigned unique ID.
-         * @throws IllegalArgumentException if the item already has an ID.
-         * @throws ItemAlreadyExistsException if the generated ID is already taken (indicates a bug).
          */
         public EntityWithId<?> add(EntityWithId<?> item){
             if(item.id() != null){
@@ -61,7 +59,6 @@ public class MemStorage {
          * @param updater, receives the current item and returns its new version.
          *                 Must be short, must not access this storage and must keep the item's ID.
          * @return the new version of the item.
-         * @throws ItemNotFoundException if no item with this ID exists.
          */
         public EntityWithId<?> update(long id, UnaryOperator<EntityWithId<?>> updater){
             EntityWithId<?> updated = items.computeIfPresent(id, (key, current) -> {
@@ -81,7 +78,6 @@ public class MemStorage {
         /**
          * Deletes an item from the baket.
          * @param id, ID of the item to delete.
-         * @throws ItemNotFoundException if no item with this ID exists.
          * @return the deleted item.
          */
         public EntityWithId<?> delete(long id){
@@ -100,8 +96,6 @@ public class MemStorage {
          * Puts items that already have IDs into the baket, e.g. when loading a snapshot.
          * Moves the ID counter past the highest restored ID, so later adds don't collide.
          * Package private: only storage internals (like the snapshot) may restore items.
-         * @throws IllegalArgumentException if an item has no ID.
-         * @throws ItemAlreadyExistsException if an item with the same ID is already in the baket.
          */
         void restore(List<? extends EntityWithId<?>> restored){
             for (EntityWithId<?> item : restored) {
@@ -138,8 +132,6 @@ public class MemStorage {
      * @param item, item.id must be null, indicating that the item is new.
      * @param <T>, item class type, must implement EntityWithId<T> interface.
      * @return the item that was added, with its ID set to the newly assigned unique ID.
-     * @throws IllegalArgumentException if the item already has an ID.
-     * @throws ItemAlreadyExistsException if the generated ID is already taken (indicates a bug).
      */
     public <T extends EntityWithId<T>> T addItem(Class<T> type, T item){
         return type.cast(bakets
@@ -172,8 +164,6 @@ public class MemStorage {
      * Package private: not exposed to repositories, only to storage internals like {@link MemStorageSnapshot}.
      * @param type the class type used to locate the item's storage bucket
      * @param items items to restore, each must have an ID
-     * @throws IllegalArgumentException if an item has no ID
-     * @throws ItemAlreadyExistsException if an item with the same ID already exists
      */
     <T extends EntityWithId<T>> void restoreItems(Class<T> type, List<T> items){
         bakets.computeIfAbsent(type, Baket::new).restore(items);
@@ -188,7 +178,6 @@ public class MemStorage {
      * @param updater receives the current item and returns its new version, must keep the item's ID.
      *                Runs under a lock: keep it short and don't access this storage from it.
      * @return the new version of the item
-     * @throws ItemNotFoundException if the item doesn't exist
      */
     public <T extends EntityWithId<T>> T updateItem(Class<T> type, long id, UnaryOperator<T> updater){
         Baket baket = bakets.get(type);
@@ -203,7 +192,6 @@ public class MemStorage {
      *
      * @param type the class type used to locate the item's storage bucket
      * @param id the ID of the item to delete
-     * @throws ItemNotFoundException if the item doesn't exist
      * @return the deleted item
      */
     public <T> T deleteItem(Class<T> type, long id){

@@ -33,11 +33,16 @@ public class AppConfig {
     @Role(BeanDefinition.ROLE_INFRASTRUCTURE)
     public static MemStorageSnapshot memStorageSnapshot(Environment environment) {
         String type = environment.getProperty(INPUT_TYPE_PROPERTY, "none").strip().toLowerCase();
+        String location = environment.getProperty(INPUT_LOCATION_PROPERTY);
+
+        if (location == null || location.isBlank()) {
+            throw new IllegalStateException(INPUT_LOCATION_PROPERTY + " is not set");
+        }
 
         var options = switch (type) {
             case "none" -> new SnapshotOptions.None();
-            case "resources" -> new SnapshotOptions.FromResources(requiredLocation(environment, type));
-            case "directory" -> new SnapshotOptions.FromDirectory(Path.of(requiredLocation(environment, type)));
+            case "resources" -> new SnapshotOptions.FromResources(location);
+            case "directory" -> new SnapshotOptions.FromDirectory(Path.of(location));
             default -> throw new IllegalStateException("Unknown " + INPUT_TYPE_PROPERTY + ": '" + type
                     + "'. Expected one of: resources, directory, none.");
         };
@@ -56,14 +61,5 @@ public class AppConfig {
                         trainerRepository.getAll().stream().map(trainer -> trainer.user().userName())
                 ).toList();
         return new UniqueUsernameGenerator(existingUserNames);
-    }
-
-    private static String requiredLocation(Environment environment, String type) {
-        String location = environment.getProperty(INPUT_LOCATION_PROPERTY);
-        if (location == null || location.isBlank()) {
-            throw new IllegalStateException(INPUT_LOCATION_PROPERTY + " must be set when "
-                    + INPUT_TYPE_PROPERTY + " is '" + type + "'.");
-        }
-        return location.strip();
     }
 }

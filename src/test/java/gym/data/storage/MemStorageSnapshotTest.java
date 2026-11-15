@@ -70,7 +70,7 @@ class MemStorageSnapshotTest {
 
     @Test
     void load_fromResources_restoresEntities() {
-        var snapshot = new MemStorageSnapshot(new SnapshotOptions.FromResources("/snapshot-fixture/"));
+        var snapshot = new MemStorageSnapshot(new SnapshotOptions.FromResources("snapshot-fixture"));
         MemStorage loaded = snapshot.load();
 
         assertEquals(Set.of(new TraineeEntity(5L,

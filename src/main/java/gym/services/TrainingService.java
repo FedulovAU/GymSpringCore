@@ -54,8 +54,6 @@ public class TrainingService {
      * Schedules a new training. The training type is the trainer's specialization.
      * @param request the request containing training details.
      * @return the scheduled training, with assigned ID.
-     * @throws CannotScheduleTrainingException if the trainee or trainer doesn't exist or is inactive,
-     * or the training overlaps with an already scheduled training of the same trainer or trainee.
      */
     public Training scheduleTraining(ScheduleTraining request) {
         RequestValidator.validateScheduleTrainingRequest(request);
@@ -96,7 +94,6 @@ public class TrainingService {
     /**
      * Removes a training by its ID.
      * @param id the unique identifier of the training to remove.
-     * @throws gym.data.storage.exceptions.ItemNotFoundException if the training doesn't exist.
      * @return the removed training.
      */
     public Training removeTraining(long id) {

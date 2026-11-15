@@ -30,7 +30,6 @@ public class TrainerRepository {
      * @param id the unique identifier of the trainer to update.
      * @param updater receives the current trainer and returns its new version, must keep the ID.
      * @return the updated trainer.
-     * @throws gym.data.storage.exceptions.ItemNotFoundException if the trainer doesn't exist.
      */
     public TrainerEntity update(long id, UnaryOperator<TrainerEntity> updater){
         return storage.updateItem(TrainerEntity.class, id, updater);

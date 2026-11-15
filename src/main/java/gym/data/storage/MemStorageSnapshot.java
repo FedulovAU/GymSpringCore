@@ -19,8 +19,6 @@ import java.util.List;
  * Stores the storage content to JSON files and loads it back, keeping entity IDs.
  * Each entity type is kept in its own file named by the type's fully qualified name, e.g.
  * "gym.data.entities.TraineeEntity.json", containing a JSON array of entities.
- * Only the types listed here are stored and loaded; a missing file means no items of that type.
- * Loading doesn't validate the data, files are expected to be produced by {@link #store}.
  */
 public class MemStorageSnapshot {
 
@@ -37,8 +35,6 @@ public class MemStorageSnapshot {
     /**
      * Creates a storage filled from the configured input source.
      * @return a new storage; empty for {@link SnapshotOptions.None}.
-     * @throws UncheckedIOException if a snapshot file can't be read.
-     * @throws IllegalStateException if a snapshot file isn't valid JSON for its entity type.
      */
     public MemStorage load() {
         MemStorage storage = new MemStorage();
@@ -68,7 +64,6 @@ public class MemStorageSnapshot {
      * Existing snapshot files in the directory are overwritten.
      * @param storage the storage to store.
      * @param outputDirectory the directory to write the files to.
-     * @throws UncheckedIOException if a file can't be written.
      */
     public void store(MemStorage storage, Path outputDirectory) {
         try {
@@ -116,8 +111,7 @@ public class MemStorageSnapshot {
                 yield Files.exists(file) ? Files.newInputStream(file) : null;
             }
             case SnapshotOptions.FromResources resources -> {
-                String folder = stripSlashes(resources.classPath());
-                String resource = folder.isEmpty() ? fileName : folder + "/" + fileName;
+                String resource = resources.classPath() + "/" + fileName;
                 yield MemStorageSnapshot.class.getClassLoader().getResourceAsStream(resource);
             }
             case SnapshotOptions.None none -> null;
@@ -126,12 +120,5 @@ public class MemStorageSnapshot {
 
     private static String fileName(Class<?> type) {
         return type.getName() + ".json";
-    }
-
-    private static String stripSlashes(String path) {
-        String result = path.strip();
-        while (result.startsWith("/")) result = result.substring(1);
-        while (result.endsWith("/")) result = result.substring(0, result.length() - 1);
-        return result;
     }
 }

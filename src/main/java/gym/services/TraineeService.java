@@ -109,7 +109,7 @@ public class TraineeService {
     /**
      * Deletes a trainee by their ID, removes all training sessions for that trainee.
      * @param id
-     * @return
+     * @return the deleted trainee.
      */
     public Trainee deleteTrainee(long id) {
         var lock = traineeLocks.get(id);
