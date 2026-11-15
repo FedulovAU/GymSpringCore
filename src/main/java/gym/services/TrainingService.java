@@ -14,6 +14,7 @@ import gym.repositories.TrainingRepository;
 import gym.services.exceptions.CannotScheduleTrainingException;
 import gym.services.mapper.EntityMapper;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
 import java.time.LocalDateTime;
@@ -29,25 +30,36 @@ import java.util.concurrent.locks.ReentrantLock;
 @Service
 public class TrainingService {
 
-    private final TrainingRepository trainingRepository;
-    private final TrainerRepository trainerRepository;
-    private final TraineeRepository traineeRepository;
+    private TrainingRepository trainingRepository;
+    private TrainerRepository trainerRepository;
+    private TraineeRepository traineeRepository;
 
-    private final TrainerLocks trainerLocks;
-    private final TraineeLocks traineeLocks;
+    private TrainerLocks trainerLocks;
+    private TraineeLocks traineeLocks;
 
-    public TrainingService(
-            TrainingRepository trainingRepository,
-            TrainerRepository trainerRepository,
-            TraineeRepository traineeRepository,
-            TrainerLocks trainerLocks,
-            TraineeLocks traineeLocks) {
-
+    @Autowired
+    public void setTrainingRepository(TrainingRepository trainingRepository) {
         this.trainingRepository = trainingRepository;
+    }
+
+    @Autowired
+    public void setTrainerRepository(TrainerRepository trainerRepository) {
         this.trainerRepository = trainerRepository;
+    }
+
+    @Autowired
+    public void setTraineeRepository(TraineeRepository traineeRepository) {
         this.traineeRepository = traineeRepository;
-        this.traineeLocks = traineeLocks;
+    }
+
+    @Autowired
+    public void setTrainerLocks(TrainerLocks trainerLocks) {
         this.trainerLocks = trainerLocks;
+    }
+
+    @Autowired
+    public void setTraineeLocks(TraineeLocks traineeLocks) {
+        this.traineeLocks = traineeLocks;
     }
 
     /**

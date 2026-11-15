@@ -13,6 +13,7 @@ import gym.services.helpers.UniqueUsernameGenerator;
 import gym.services.helpers.PasswordGenerator;
 import gym.services.mapper.EntityMapper;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
 import java.util.List;
@@ -22,22 +23,34 @@ import java.util.Optional;
 @Service
 public class TraineeService {
 
-    private final TrainingRepository trainingRepository;
-    private final TraineeRepository traineeRepository;
-    private final UniqueUsernameGenerator userNameGenerator;
-    private final PasswordGenerator passwordGenerator;
-    private final TraineeLocks traineeLocks;
+    private TrainingRepository trainingRepository;
+    private TraineeRepository traineeRepository;
+    private UniqueUsernameGenerator userNameGenerator;
+    private PasswordGenerator passwordGenerator;
+    private TraineeLocks traineeLocks;
 
-    public TraineeService(
-            TrainingRepository trainingRepository,
-            TraineeRepository traineeRepository,
-            UniqueUsernameGenerator userNameGenerator,
-            PasswordGenerator passwordGenerator,
-            TraineeLocks traineeLocks) {
+    @Autowired
+    public void setTrainingRepository(TrainingRepository trainingRepository) {
         this.trainingRepository = trainingRepository;
+    }
+
+    @Autowired
+    public void setTraineeRepository(TraineeRepository traineeRepository) {
         this.traineeRepository = traineeRepository;
+    }
+
+    @Autowired
+    public void setUserNameGenerator(UniqueUsernameGenerator userNameGenerator) {
         this.userNameGenerator = userNameGenerator;
+    }
+
+    @Autowired
+    public void setPasswordGenerator(PasswordGenerator passwordGenerator) {
         this.passwordGenerator = passwordGenerator;
+    }
+
+    @Autowired
+    public void setTraineeLocks(TraineeLocks traineeLocks) {
         this.traineeLocks = traineeLocks;
     }
 

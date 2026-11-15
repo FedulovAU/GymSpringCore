@@ -1,7 +1,6 @@
 package gym.configuration;
 
 import gym.data.storage.SnapshotOptions;
-import gym.data.storage.MemStorage;
 import gym.data.storage.MemStorageSnapshot;
 import gym.repositories.TraineeRepository;
 import gym.repositories.TrainerRepository;

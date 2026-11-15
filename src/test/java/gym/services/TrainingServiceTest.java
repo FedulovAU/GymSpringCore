@@ -53,12 +53,12 @@ class TrainingServiceTest {
 
     @BeforeEach
     void setUp() {
-        service = new TrainingService(
-                trainingRepository,
-                trainerRepository,
-                traineeRepository,
-                new TrainerLocks(),
-                new TraineeLocks());
+        service = new TrainingService();
+        service.setTrainingRepository(trainingRepository);
+        service.setTrainerRepository(trainerRepository);
+        service.setTraineeRepository(traineeRepository);
+        service.setTrainerLocks(new TrainerLocks());
+        service.setTraineeLocks(new TraineeLocks());
     }
 
     private static TrainerEntity trainerEntity(boolean isActive) {

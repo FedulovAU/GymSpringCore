@@ -45,11 +45,11 @@ class TrainerServiceTest {
 
     @BeforeEach
     void setUp() {
-        service = new TrainerService(
-                trainerRepository,
-                userNameGenerator,
-                passwordGenerator,
-                new TrainerLocks());
+        service = new TrainerService();
+        service.setTrainerRepository(trainerRepository);
+        service.setUserNameGenerator(userNameGenerator);
+        service.setPasswordGenerator(passwordGenerator);
+        service.setTrainerLocks(new TrainerLocks());
     }
 
     private static TrainerEntity trainerEntity(long id, boolean isActive) {

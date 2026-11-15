@@ -12,6 +12,7 @@ import gym.services.helpers.UniqueUsernameGenerator;
 import gym.services.helpers.PasswordGenerator;
 import gym.services.mapper.EntityMapper;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
 import java.util.List;
@@ -24,19 +25,28 @@ import java.util.Optional;
 @Service
 public class TrainerService {
 
-    private final TrainerRepository trainerRepository;
-    private final UniqueUsernameGenerator userNameGenerator;
-    private final PasswordGenerator passwordGenerator;
-    private final TrainerLocks trainerLocks;
+    private TrainerRepository trainerRepository;
+    private UniqueUsernameGenerator userNameGenerator;
+    private PasswordGenerator passwordGenerator;
+    private TrainerLocks trainerLocks;
 
-    public TrainerService(
-            TrainerRepository trainerRepository,
-            UniqueUsernameGenerator userNameGenerator,
-            PasswordGenerator passwordGenerator,
-            TrainerLocks trainerLocks) {
+    @Autowired
+    public void setTrainerRepository(TrainerRepository trainerRepository) {
         this.trainerRepository = trainerRepository;
+    }
+
+    @Autowired
+    public void setUserNameGenerator(UniqueUsernameGenerator userNameGenerator) {
         this.userNameGenerator = userNameGenerator;
+    }
+
+    @Autowired
+    public void setPasswordGenerator(PasswordGenerator passwordGenerator) {
         this.passwordGenerator = passwordGenerator;
+    }
+
+    @Autowired
+    public void setTrainerLocks(TrainerLocks trainerLocks) {
         this.trainerLocks = trainerLocks;
     }
 
