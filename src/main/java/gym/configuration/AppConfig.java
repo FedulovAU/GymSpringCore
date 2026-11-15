@@ -10,6 +10,8 @@ import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.ComponentScan;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.context.annotation.PropertySource;
+import org.springframework.context.annotation.Role;
+import org.springframework.beans.factory.config.BeanDefinition;
 import org.springframework.core.env.Environment;
 
 import java.nio.file.Path;
@@ -23,29 +25,23 @@ public class AppConfig {
     static final String INPUT_TYPE_PROPERTY = "storage.snapshot.input.type";
     static final String INPUT_LOCATION_PROPERTY = "storage.snapshot.input.location";
 
+    /**
+     * Static, because {@link StorageInitializer} (a bean post-processor) depends on it.
+     * Marked as infrastructure: it is created early for the post-processor and doesn't need post-processing itself.
+     */
     @Bean
-    public SnapshotOptions snapshotOptions(Environment environment) {
+    @Role(BeanDefinition.ROLE_INFRASTRUCTURE)
+    public static MemStorageSnapshot memStorageSnapshot(Environment environment) {
         String type = environment.getProperty(INPUT_TYPE_PROPERTY, "none").strip().toLowerCase();
-        return switch (type) {
+
+        var options = switch (type) {
             case "none" -> new SnapshotOptions.None();
             case "resources" -> new SnapshotOptions.FromResources(requiredLocation(environment, type));
             case "directory" -> new SnapshotOptions.FromDirectory(Path.of(requiredLocation(environment, type)));
             default -> throw new IllegalStateException("Unknown " + INPUT_TYPE_PROPERTY + ": '" + type
                     + "'. Expected one of: resources, directory, none.");
         };
-    }
-
-    @Bean
-    public MemStorageSnapshot memStorageSnapshot(SnapshotOptions snapshotOptions) {
-        return new MemStorageSnapshot(snapshotOptions);
-    }
-
-    /**
-     * The storage is filled from the snapshot before any repository gets it.
-     */
-    @Bean
-    public MemStorage memStorage(MemStorageSnapshot snapshot) {
-        return snapshot.load();
+        return new MemStorageSnapshot(options);
     }
 
     /**

@@ -2,6 +2,7 @@ package gym.data.storage;
 
 import gym.data.storage.exceptions.ItemAlreadyExistsException;
 import gym.data.storage.exceptions.ItemNotFoundException;
+import org.springframework.stereotype.Component;
 
 import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
@@ -14,6 +15,7 @@ import java.util.function.UnaryOperator;
  * Thread safe, allows concurrent access and modification of items.
  * Created as a bean in {@link gym.configuration.AppConfig}, filled from a snapshot if one is configured.
  */
+@Component
 public class MemStorage {
 
     /**

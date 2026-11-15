@@ -42,13 +42,25 @@ public class MemStorageSnapshot {
      */
     public MemStorage load() {
         MemStorage storage = new MemStorage();
-        if (options instanceof SnapshotOptions.None) {
-            return storage;
-        }
-        loadType(storage, TraineeEntity.class);
-        loadType(storage, TrainerEntity.class);
-        loadType(storage, TrainingEntity.class);
+        loadInto(storage);
         return storage;
+    }
+
+    /**
+     * Fills an existing storage from the configured input source, keeping entity IDs.
+     * Does nothing for {@link SnapshotOptions.None}.
+     * @param target the storage to fill, expected to be empty.
+     */
+    public void loadInto(MemStorage target) {
+        if (target == null) {
+            throw new IllegalArgumentException("Target storage cannot be null.");
+        }
+        if (options instanceof SnapshotOptions.None) {
+            return;
+        }
+        loadType(target, TraineeEntity.class);
+        loadType(target, TrainerEntity.class);
+        loadType(target, TrainingEntity.class);
     }
 
     /**
