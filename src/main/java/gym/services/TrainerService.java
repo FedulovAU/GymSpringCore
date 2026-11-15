@@ -46,7 +46,6 @@ public class TrainerService {
      * @return the created trainer, with unique username and assigned ID.
      */
     public Trainer createTrainer(CreateTrainer request) {
-        log.info("createTrainer started, specialization={}.", request == null ? null : request.specialization());
         // Check for null or invalid fields in the request.
         RequestValidator.validateCreateTrainerRequest(request);
 
@@ -66,7 +65,9 @@ public class TrainerService {
         ));
 
         // Map stored entity to the result.
-        return EntityMapper.toTrainer(trainerEntity);
+        var result = EntityMapper.toTrainer(trainerEntity);
+        log.info("createTrainer completed, id={}.", result.id());
+        return result;
     }
 
     /**
@@ -76,13 +77,14 @@ public class TrainerService {
      * @return the updated trainer.
      */
     public Trainer updateTrainer(UpdateTrainer request) {
-        log.info("updateTrainer started, id={}.", request == null ? null : request.id());
         RequestValidator.validateUpdateTrainerRequest(request);
 
         // Read-modify-write runs atomically inside the storage.
         TrainerEntity updatedTrainer = trainerRepository.update(request.id(), existing -> applyUpdate(existing, request));
 
-        return EntityMapper.toTrainer(updatedTrainer);
+        var result = EntityMapper.toTrainer(updatedTrainer);
+        log.info("updateTrainer completed, id={}.", result.id());
+        return result;
     }
 
     /**
@@ -91,12 +93,13 @@ public class TrainerService {
      * @return the deactivated trainer.
      */
     public Trainer deactivateTrainer(long id) {
-        log.info("deactivateTrainer started, id={}.", id);
         var lock = trainerLocks.get(id);
         lock.lock();
         try {
             TrainerEntity deactivated = trainerRepository.update(id, trainer -> trainer.withUser(trainer.user().withActive(false)));
-            return EntityMapper.toTrainer(deactivated);
+            var result = EntityMapper.toTrainer(deactivated);
+            log.info("deactivateTrainer completed, id={}.", result.id());
+            return result;
         } finally {
             lock.unlock();
         }
@@ -108,12 +111,10 @@ public class TrainerService {
      * @return an Optional containing the Trainer if found, or empty if not found.
      */
     public Optional<Trainer> findTrainerById(long id) {
-        log.info("findTrainerById started, id={}.", id);
         return trainerRepository.getById(id).map(EntityMapper::toTrainer);
     }
 
     public List<Trainer> getAll() {
-        log.info("getAll trainers started.");
         return trainerRepository.getAll().stream().map(EntityMapper::toTrainer).toList();
     }
 

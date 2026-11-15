@@ -58,7 +58,6 @@ public class TrainingService {
      * or the training overlaps with an already scheduled training of the same trainer or trainee.
      */
     public Training scheduleTraining(ScheduleTraining request) {
-        log.info("scheduleTraining started, request={}.", request);
         RequestValidator.validateScheduleTrainingRequest(request);
 
         // Lock order is always trainer first, then trainee, so two calls can't deadlock.
@@ -83,7 +82,9 @@ public class TrainingService {
                         request.trainingDate(),
                         request.duration()));
 
-                return EntityMapper.toTraining(training);
+                var result = EntityMapper.toTraining(training);
+                log.info("scheduleTraining completed, id={}.", result.id());
+                return result;
             } finally {
                 traineeLock.unlock();
             }
@@ -99,15 +100,15 @@ public class TrainingService {
      * @return the removed training.
      */
     public Training removeTraining(long id) {
-        log.info("removeTraining started, id={}.", id);
-        return EntityMapper.toTraining(trainingRepository.deleteById(id));
+        var result = EntityMapper.toTraining(trainingRepository.deleteById(id));
+        log.info("removeTraining completed, id={}.", result.id());
+        return result;
     }
 
     /**
      * @return all trainings.
      */
     public List<Training> getAll() {
-        log.info("getAll trainings started.");
         return trainingRepository.getAll().stream().map(EntityMapper::toTraining).toList();
     }
 

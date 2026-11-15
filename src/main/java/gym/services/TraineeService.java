@@ -47,7 +47,6 @@ public class TraineeService {
      * @return the created trainee, with unique username and assigned ID.
      */
     public Trainee createTrainee(CreateTrainee request) {
-        log.info("createTrainee started.");
         // Check for null or invalid fields in the request.
         RequestValidator.validateCreateTraineeRequest(request);
 
@@ -67,7 +66,9 @@ public class TraineeService {
         ));
 
         // Map stored entity to the result.
-        return EntityMapper.toTrainee(traineeEntity);
+        var result = EntityMapper.toTrainee(traineeEntity);
+        log.info("createTrainee completed, id={}.", result.id());
+        return result;
     }
 
     /**
@@ -77,13 +78,14 @@ public class TraineeService {
      * @return the updated trainee.
      */
     public Trainee updateTrainee(UpdateTrainee request) {
-        log.info("updateTrainee started, id={}.", request == null ? null : request.id());
         RequestValidator.validateUpdateTraineeRequest(request);
 
         // Read-modify-write runs atomically inside the storage.
         TraineeEntity updatedTrainee = traineeRepository.update(request.id(), existing -> applyUpdate(existing, request));
 
-        return EntityMapper.toTrainee(updatedTrainee);
+        var result = EntityMapper.toTrainee(updatedTrainee);
+        log.info("updateTrainee completed, id={}.", result.id());
+        return result;
     }
 
     /**
@@ -92,12 +94,13 @@ public class TraineeService {
      * @return the deactivated trainee.
      */
     public Trainee deactivateTrainee(long id) {
-        log.info("deactivateTrainee started, id={}.", id);
         var lock = traineeLocks.get(id);
         lock.lock();
         try{
             TraineeEntity deactivated = traineeRepository.update(id, trainee -> trainee.withUser(trainee.user().withActive(false)));
-            return EntityMapper.toTrainee(deactivated);
+            var result = EntityMapper.toTrainee(deactivated);
+            log.info("deactivateTrainee completed, id={}.", result.id());
+            return result;
         } finally {
             lock.unlock();
         }
@@ -109,18 +112,19 @@ public class TraineeService {
      * @return
      */
     public Trainee deleteTrainee(long id) {
-        log.info("deleteTrainee started, id={}.", id);
         var lock = traineeLocks.get(id);
         lock.lock();
         try {
             trainingRepository.getByTraineeId(id).forEach(training -> {
                 trainingRepository.deleteById(training.id());
-                log.info("deleteTrainee id={}: deleted training {}.", id, training);
+                log.info("deleteTrainee id={}: deleted training id={}.", id, training.id());
             });
             // Delete trainee the last, so if some training is impossible to delete, trainee remains, and we can retry and do clean up.
             // Otherwise, we may delete trainee, but not all trainings, leaving them orphaned.
             TraineeEntity deleted = traineeRepository.delete(id);
-            return EntityMapper.toTrainee(deleted);
+            var result = EntityMapper.toTrainee(deleted);
+            log.info("deleteTrainee completed, id={}.", result.id());
+            return result;
         } finally {
             lock.unlock();
         }
@@ -132,12 +136,10 @@ public class TraineeService {
      * @return an Optional containing the Trainee if found, or empty if not found.
      */
     public Optional<Trainee> findTraineeById(long id) {
-        log.info("findTraineeById started, id={}.", id);
         return traineeRepository.getById(id).map(EntityMapper::toTrainee);
     }
 
     public List<Trainee> getAll() {
-        log.info("getAll trainees started.");
         return traineeRepository.getAll().stream().map(EntityMapper::toTrainee).toList();
     }
 
