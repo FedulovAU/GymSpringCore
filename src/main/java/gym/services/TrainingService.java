@@ -83,7 +83,7 @@ public class TrainingService {
                         request.duration()));
 
                 var result = EntityMapper.toTraining(training);
-                log.info("scheduleTraining completed, id={}.", result.id());
+                log.info("scheduleTraining completed, id={}, traineeId={}, trainerId={}", result.id(), result.traineeId(), result.trainerId());
                 return result;
             } finally {
                 traineeLock.unlock();
@@ -101,7 +101,7 @@ public class TrainingService {
      */
     public Training removeTraining(long id) {
         var result = EntityMapper.toTraining(trainingRepository.deleteById(id));
-        log.info("removeTraining completed, id={}.", result.id());
+        log.info("removeTraining completed, id={}, traineeId={}, trainerId={}", result.id(), result.traineeId(), result.trainerId());
         return result;
     }
 

@@ -68,9 +68,9 @@ public class Program {
             // Mia has two preloaded trainings, they're deleted together with her.
             gym.deleteTrainee(TRAINEE_MIA_WONG_ID);
 
-            gym.getAllTrainers().forEach(t -> log.info("Trainer: {}", t));
-            gym.getAllTrainees().forEach(t -> log.info("Trainee: {}", t));
-            gym.getAllTrainings().forEach(t -> log.info("Training: {}", t));
+            gym.getAllTrainers().forEach(t -> log.info("Trainer: id={}, isActive={}, specialization={}", t.id(), t.isActive(), t.specialization()));
+            gym.getAllTrainees().forEach(t -> log.info("Trainee: id={}, isActive={}", t.id(), t.isActive()));
+            gym.getAllTrainings().forEach(t -> log.info("Training: id={}, traineeId={}, trainerId={}", t.id(), t.traineeId(), t.trainerId()));
             
         } catch (CannotScheduleTrainingException e) {
             log.error("Cannot schedule training: {}", e.getMessage(), e);

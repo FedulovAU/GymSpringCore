@@ -117,7 +117,7 @@ public class TraineeService {
         try {
             trainingRepository.getByTraineeId(id).forEach(training -> {
                 trainingRepository.deleteById(training.id());
-                log.info("deleteTrainee id={}: deleted training id={}.", id, training.id());
+                log.info("deleted training id={} caused by deletion of trainee id={}", training.id(), id);
             });
             // Delete trainee the last, so if some training is impossible to delete, trainee remains, and we can retry and do clean up.
             // Otherwise, we may delete trainee, but not all trainings, leaving them orphaned.
