@@ -16,6 +16,8 @@
         <!-- 1.18.48+ is required for JDK 27 -->
         <lombok.version>1.18.48</lombok.version>
         <jackson.version>3.2.4</jackson.version>
+        <slf4j.version>2.0.17</slf4j.version>
+        <logback.version>1.5.18</logback.version>
         <junit.version>6.1.3</junit.version>
         <mockito.version>5.24.0</mockito.version>
         <!-- Mockito 5.24.0 ships Byte Buddy 1.17.7, which doesn't support Java 27 class files.
@@ -58,6 +60,19 @@
             <groupId>tools.jackson.core</groupId>
             <artifactId>jackson-databind</artifactId>
             <version>${jackson.version}</version>
+        </dependency>
+
+        <!-- Logging: SLF4J API in code, Logback as the implementation (configured in logback.xml).
+             Spring's own logging (commons-logging) detects SLF4J and goes to the same place. -->
+        <dependency>
+            <groupId>org.slf4j</groupId>
+            <artifactId>slf4j-api</artifactId>
+            <version>${slf4j.version}</version>
+        </dependency>
+        <dependency>
+            <groupId>ch.qos.logback</groupId>
+            <artifactId>logback-classic</artifactId>
+            <version>${logback.version}</version>
         </dependency>
 
         <dependency>

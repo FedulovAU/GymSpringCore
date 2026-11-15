@@ -31,9 +31,9 @@
 }, {
   "id" : 4,
   "user" : {
-    "firstName" : "Olga",
-    "lastName" : "Ivanova",
-    "userName" : "Olga_Ivanova",
+    "firstName" : "Kate",
+    "lastName" : "Green",
+    "userName" : "Kate_Green",
     "password" : "0AoHAs1VFO",
     "isActive" : true
   },

@@ -13,6 +13,7 @@ import gym.repositories.TrainerRepository;
 import gym.repositories.TrainingRepository;
 import gym.services.exceptions.CannotScheduleTrainingException;
 import gym.services.mapper.EntityMapper;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 
 import java.time.LocalDateTime;
@@ -24,8 +25,10 @@ import java.util.concurrent.locks.ReentrantLock;
  * For scheduling checks for schedule overlaps for both trainer and trainee.
  * Thread safe: locks per trainer and trainee to avoid race.
  */
+@Slf4j
 @Service
 public class TrainingService {
+
     private final TrainingRepository trainingRepository;
     private final TrainerRepository trainerRepository;
     private final TraineeRepository traineeRepository;
@@ -55,6 +58,7 @@ public class TrainingService {
      * or the training overlaps with an already scheduled training of the same trainer or trainee.
      */
     public Training scheduleTraining(ScheduleTraining request) {
+        log.info("scheduleTraining started, request={}.", request);
         RequestValidator.validateScheduleTrainingRequest(request);
 
         // Lock order is always trainer first, then trainee, so two calls can't deadlock.
@@ -95,6 +99,7 @@ public class TrainingService {
      * @return the removed training.
      */
     public Training removeTraining(long id) {
+        log.info("removeTraining started, id={}.", id);
         return EntityMapper.toTraining(trainingRepository.deleteById(id));
     }
 
@@ -102,6 +107,7 @@ public class TrainingService {
      * @return all trainings.
      */
     public List<Training> getAll() {
+        log.info("getAll trainings started.");
         return trainingRepository.getAll().stream().map(EntityMapper::toTraining).toList();
     }
 

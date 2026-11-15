@@ -12,13 +12,16 @@ import gym.repositories.TraineeRepository;
 import gym.services.helpers.UniqueUsernameGenerator;
 import gym.services.helpers.PasswordGenerator;
 import gym.services.mapper.EntityMapper;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 
 import java.util.List;
 import java.util.Optional;
 
+@Slf4j
 @Service
 public class TraineeService {
+
     private final TrainingRepository trainingRepository;
     private final TraineeRepository traineeRepository;
     private final UniqueUsernameGenerator userNameGenerator;
@@ -44,6 +47,7 @@ public class TraineeService {
      * @return the created trainee, with unique username and assigned ID.
      */
     public Trainee createTrainee(CreateTrainee request) {
+        log.info("createTrainee started.");
         // Check for null or invalid fields in the request.
         RequestValidator.validateCreateTraineeRequest(request);
 
@@ -73,6 +77,7 @@ public class TraineeService {
      * @return the updated trainee.
      */
     public Trainee updateTrainee(UpdateTrainee request) {
+        log.info("updateTrainee started, id={}.", request == null ? null : request.id());
         RequestValidator.validateUpdateTraineeRequest(request);
 
         // Read-modify-write runs atomically inside the storage.
@@ -87,6 +92,7 @@ public class TraineeService {
      * @return the deactivated trainee.
      */
     public Trainee deactivateTrainee(long id) {
+        log.info("deactivateTrainee started, id={}.", id);
         var lock = traineeLocks.get(id);
         lock.lock();
         try{
@@ -103,10 +109,14 @@ public class TraineeService {
      * @return
      */
     public Trainee deleteTrainee(long id) {
+        log.info("deleteTrainee started, id={}.", id);
         var lock = traineeLocks.get(id);
         lock.lock();
         try {
-            trainingRepository.getByTraineeId(id).forEach(training -> trainingRepository.deleteById(training.id()));
+            trainingRepository.getByTraineeId(id).forEach(training -> {
+                trainingRepository.deleteById(training.id());
+                log.info("deleteTrainee id={}: deleted training {}.", id, training);
+            });
             // Delete trainee the last, so if some training is impossible to delete, trainee remains, and we can retry and do clean up.
             // Otherwise, we may delete trainee, but not all trainings, leaving them orphaned.
             TraineeEntity deleted = traineeRepository.delete(id);
@@ -122,10 +132,12 @@ public class TraineeService {
      * @return an Optional containing the Trainee if found, or empty if not found.
      */
     public Optional<Trainee> findTraineeById(long id) {
+        log.info("findTraineeById started, id={}.", id);
         return traineeRepository.getById(id).map(EntityMapper::toTrainee);
     }
 
     public List<Trainee> getAll() {
+        log.info("getAll trainees started.");
         return traineeRepository.getAll().stream().map(EntityMapper::toTrainee).toList();
     }
 
