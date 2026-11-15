@@ -2,7 +2,6 @@ package gym.data.storage;
 
 import gym.data.storage.exceptions.ItemAlreadyExistsException;
 import gym.data.storage.exceptions.ItemNotFoundException;
-import org.springframework.stereotype.Component;
 
 import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
@@ -13,8 +12,8 @@ import java.util.function.UnaryOperator;
  * Stores items in memory grouped by their class type.
  * Each class type has its own "baket" of items, which is a map of IDs to objects.
  * Thread safe, allows concurrent access and modification of items.
+ * Created as a bean in {@link gym.configuration.AppConfig}, filled from a snapshot if one is configured.
  */
-@Component
 public class MemStorage {
 
     /**
@@ -96,6 +95,26 @@ public class MemStorage {
         }
 
         /**
+         * Puts items that already have IDs into the baket, e.g. when loading a snapshot.
+         * Moves the ID counter past the highest restored ID, so later adds don't collide.
+         * Package private: only storage internals (like the snapshot) may restore items.
+         * @throws IllegalArgumentException if an item has no ID.
+         * @throws ItemAlreadyExistsException if an item with the same ID is already in the baket.
+         */
+        void restore(List<? extends EntityWithId<?>> restored){
+            for (EntityWithId<?> item : restored) {
+                if (item.id() == null) {
+                    throw new IllegalArgumentException("Restored item of type " + type.getSimpleName() + " has no ID.");
+                }
+                long id = item.id();
+                if (items.putIfAbsent(id, item) != null) {
+                    throw new ItemAlreadyExistsException(type, id);
+                }
+                nextId.accumulateAndGet(id, Math::max);
+            }
+        }
+
+        /**
          * Retrieves an item from the baket by its ID.
          * @param id
          * @return either an Optional containing the item with the specified ID, or an empty Optional if no such item exists.
@@ -143,6 +162,19 @@ public class MemStorage {
         Baket baket = bakets.get(type);
         if (baket == null) return List.of();
         return baket.getAll().stream().map(type::cast).toList();
+    }
+
+    /**
+     * Puts items that already have IDs into the storage, keeping their IDs, e.g. when loading a snapshot.
+     * Later added items of this type get IDs above the highest restored one.
+     * Package private: not exposed to repositories, only to storage internals like {@link MemStorageSnapshot}.
+     * @param type the class type used to locate the item's storage bucket
+     * @param items items to restore, each must have an ID
+     * @throws IllegalArgumentException if an item has no ID
+     * @throws ItemAlreadyExistsException if an item with the same ID already exists
+     */
+    <T extends EntityWithId<T>> void restoreItems(Class<T> type, List<T> items){
+        bakets.computeIfAbsent(type, Baket::new).restore(items);
     }
 
 

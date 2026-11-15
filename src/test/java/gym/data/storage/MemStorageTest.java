@@ -1,5 +1,6 @@
 package gym.data.storage;
 
+import gym.data.storage.exceptions.ItemAlreadyExistsException;
 import gym.data.storage.exceptions.ItemNotFoundException;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -209,5 +210,38 @@ class MemStorageTest {
         storage.deleteItem(EntityA.class, temp.id());
 
         assertTrue(storage.getAllItems(EntityA.class).isEmpty());
+    }
+
+    // ---------- restoreItems ----------
+
+    @Test
+    void restoreItems_itemsWithIds_keepsIdsAndStoresThem() {
+        storage.restoreItems(EntityA.class, List.of(new EntityA(3L, "a"), new EntityA(7L, "b")));
+
+        assertEquals(Optional.of(new EntityA(3L, "a")), storage.getItem(EntityA.class, 3L));
+        assertEquals(Optional.of(new EntityA(7L, "b")), storage.getItem(EntityA.class, 7L));
+    }
+
+    @Test
+    void restoreItems_thenAddItem_assignsIdAboveHighestRestored() {
+        storage.restoreItems(EntityA.class, List.of(new EntityA(7L, "b"), new EntityA(3L, "a")));
+
+        EntityA added = storage.addItem(EntityA.class, new EntityA(null, "new"));
+
+        assertEquals(8L, added.id());
+    }
+
+    @Test
+    void restoreItems_idAlreadyTaken_throwsItemAlreadyExistsException() {
+        EntityA added = storage.addItem(EntityA.class, new EntityA(null, "a"));
+
+        assertThrows(ItemAlreadyExistsException.class,
+                () -> storage.restoreItems(EntityA.class, List.of(new EntityA(added.id(), "other"))));
+    }
+
+    @Test
+    void restoreItems_itemWithoutId_throwsIllegalArgumentException() {
+        assertThrows(IllegalArgumentException.class,
+                () -> storage.restoreItems(EntityA.class, List.of(new EntityA(null, "a"))));
     }
 }
