@@ -26,7 +26,6 @@ public class AppConfig {
 
     /**
      * Static, because {@link StorageInitializer} (a bean post-processor) depends on it.
-     * Marked as infrastructure: it is created early for the post-processor and doesn't need post-processing itself.
      */
     @Bean
     @Role(BeanDefinition.ROLE_INFRASTRUCTURE)
@@ -39,7 +38,7 @@ public class AppConfig {
         }
 
         var options = switch (type) {
-            case "none" -> new SnapshotOptions.None();
+            case "none" -> new SnapshotOptions.FromEmptyStorage();
             case "resources" -> new SnapshotOptions.FromResources(location);
             case "directory" -> new SnapshotOptions.FromDirectory(Path.of(location));
             default -> throw new IllegalStateException("Unknown " + INPUT_TYPE_PROPERTY + ": '" + type
@@ -48,9 +47,7 @@ public class AppConfig {
         return new MemStorageSnapshot(options);
     }
 
-    /**
-     * Seeded with the usernames already in storage, so loaded users' usernames are never generated again.
-     */
+
     @Bean
     public UniqueUsernameGenerator uniqueUsernameGenerator(
             TraineeRepository traineeRepository,

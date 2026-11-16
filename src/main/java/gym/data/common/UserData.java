@@ -1,10 +1,7 @@
-package gym.data.entities.common;
+package gym.data.common;
 
 import lombok.With;
 
-/**
- * Not an entity, common user data used by user related entities like TraineeEntity and TrainerEntity.
- */
 @With
 public record UserData(
         String firstName,

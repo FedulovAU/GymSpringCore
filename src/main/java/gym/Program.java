@@ -64,9 +64,9 @@ public class Program {
                     "Smithson", 
                     null));
 
-            gym.deactivateTrainee(TRAINEE_KATE_GREEN_ID);
+            gym.deactivateTraineeById(TRAINEE_KATE_GREEN_ID);
             // Mia has two preloaded trainings, they're deleted together with her.
-            gym.deleteTrainee(TRAINEE_MIA_WONG_ID);
+            gym.deleteTraineeById(TRAINEE_MIA_WONG_ID);
 
             gym.getAllTrainers().forEach(t -> log.info("Trainer: id={}, isActive={}, specialization={}", t.id(), t.isActive(), t.specialization()));
             gym.getAllTrainees().forEach(t -> log.info("Trainee: id={}, isActive={}", t.id(), t.isActive()));

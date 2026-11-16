@@ -3,7 +3,7 @@ package gym.data.storage;
 import gym.data.entities.TraineeEntity;
 import gym.data.entities.TrainerEntity;
 import gym.data.entities.TrainingEntity;
-import gym.data.entities.common.UserData;
+import gym.data.common.UserData;
 import gym.data.entities.enums.TrainingTypeEntity;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
@@ -39,7 +39,6 @@ class MemStorageSnapshotTest {
         assertEquals(Set.copyOf(expected.getAllItems(type)), Set.copyOf(actual.getAllItems(type)));
     }
 
-    // ---------- store + load ----------
 
     @Test
     void storeThenLoad_fromDirectory_restoresAllEntities() {
@@ -66,7 +65,6 @@ class MemStorageSnapshotTest {
         assertEquals(2L, added.id());
     }
 
-    // ---------- load sources ----------
 
     @Test
     void load_fromResources_restoresEntities() {
@@ -85,7 +83,7 @@ class MemStorageSnapshotTest {
 
     @Test
     void load_none_returnsEmptyStorage() {
-        var snapshot = new MemStorageSnapshot(new SnapshotOptions.None());
+        var snapshot = new MemStorageSnapshot(new SnapshotOptions.FromEmptyStorage());
         MemStorage loaded = snapshot.load();
 
         assertTrue(loaded.getAllItems(TraineeEntity.class).isEmpty());

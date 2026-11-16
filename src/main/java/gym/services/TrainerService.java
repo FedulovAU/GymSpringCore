@@ -1,7 +1,7 @@
 package gym.services;
 
 import gym.data.entities.TrainerEntity;
-import gym.data.entities.common.UserData;
+import gym.data.common.UserData;
 import gym.services.dto.requests.CreateTrainer;
 import gym.services.dto.requests.UpdateTrainer;
 import gym.services.synchronization.TrainerLocks;
@@ -18,9 +18,7 @@ import org.springframework.stereotype.Service;
 import java.util.List;
 import java.util.Optional;
 
-/**
- * Trainer operations. Trainers can't be deleted, only deactivated.
- */
+
 @Slf4j
 @Service
 public class TrainerService {
@@ -50,19 +48,11 @@ public class TrainerService {
         this.trainerLocks = trainerLocks;
     }
 
-    /**
-     * Creates a new trainer.
-     * @param request the request containing trainer details.
-     * @return the created trainer, with unique username and assigned ID.
-     */
-    public Trainer createTrainer(CreateTrainer request) {
-        // Check for null or invalid fields in the request.
-        RequestValidator.validateCreateTrainerRequest(request);
 
-        // Create unique username. The generator is shared with trainees, so usernames are unique across all users.
+    public Trainer createTrainer(CreateTrainer request) {
+        RequestValidator.validateCreateTrainerRequest(request);
         String userName = userNameGenerator.generateUniqueUserName(request.firstName(), request.lastName());
 
-        // Store new trainer.
         TrainerEntity trainerEntity = trainerRepository.add(new TrainerEntity(
                 null,
                 new UserData(
@@ -74,22 +64,13 @@ public class TrainerService {
                 EntityMapper.toTrainingTypeEntity(request.specialization())
         ));
 
-        // Map stored entity to the result.
         var result = EntityMapper.toTrainer(trainerEntity);
         log.info("createTrainer completed, id={}.", result.id());
         return result;
     }
 
-    /**
-     * Updates an existing trainer's information.
-     * @param request the request containing updated trainer details.
-     * The username is the login and stays the same, even if first name or last name is changed.
-     * @return the updated trainer.
-     */
     public Trainer updateTrainer(UpdateTrainer request) {
         RequestValidator.validateUpdateTrainerRequest(request);
-
-        // Read-modify-write runs atomically inside the storage.
         TrainerEntity updatedTrainer = trainerRepository.update(request.id(), existing -> applyUpdate(existing, request));
 
         var result = EntityMapper.toTrainer(updatedTrainer);
@@ -97,14 +78,10 @@ public class TrainerService {
         return result;
     }
 
-    /**
-     * Deactivates a trainer by their ID: the trainer stays in storage, but is marked as inactive.
-     * @param id the unique identifier of the trainer to be deactivated.
-     * @return the deactivated trainer.
-     */
-    public Trainer deactivateTrainer(long id) {
+    public Trainer deactivateTrainerById(long id) {
         var lock = trainerLocks.get(id);
         lock.lock();
+
         try {
             TrainerEntity deactivated = trainerRepository.update(id, trainer -> trainer.withUser(trainer.user().withActive(false)));
             var result = EntityMapper.toTrainer(deactivated);
@@ -115,11 +92,6 @@ public class TrainerService {
         }
     }
 
-    /**
-     * Finds a trainer by their ID.
-     * @param id
-     * @return an Optional containing the Trainer if found, or empty if not found.
-     */
     public Optional<Trainer> findTrainerById(long id) {
         return trainerRepository.getById(id).map(EntityMapper::toTrainer);
     }
@@ -128,9 +100,7 @@ public class TrainerService {
         return trainerRepository.getAll().stream().map(EntityMapper::toTrainer).toList();
     }
 
-    /**
-     * Applies the provided (non-null) fields of the request to the trainer. Username is never changed.
-     */
+
     private TrainerEntity applyUpdate(TrainerEntity trainer, UpdateTrainer request) {
         var userData = trainer.user();
 

@@ -2,7 +2,7 @@ package gym.services;
 
 import gym.data.entities.TraineeEntity;
 import gym.data.entities.TrainingEntity;
-import gym.data.entities.common.UserData;
+import gym.data.common.UserData;
 import gym.data.entities.enums.TrainingTypeEntity;
 import gym.data.storage.exceptions.ItemNotFoundException;
 import gym.repositories.TraineeRepository;
@@ -75,15 +75,13 @@ class TraineeServiceTest {
                 LocalDateTime.of(2026, 12, 1, 9, 0), Duration.ofHours(1));
     }
 
-    /** Makes the mocked update apply the service's updater to the given entity, like the real storage does. */
+
     private void stubUpdateAppliesUpdaterTo(TraineeEntity existing) {
         when(traineeRepository.update(eq(existing.id()), any())).thenAnswer(invocation -> {
             UnaryOperator<TraineeEntity> updater = invocation.getArgument(1);
             return updater.apply(existing);
         });
     }
-
-    // ---------- createTrainee ----------
 
     @Test
     void createTrainee_validRequest_returnsCreatedTrainee() {
@@ -115,8 +113,6 @@ class TraineeServiceTest {
         verifyNoInteractions(traineeRepository, userNameGenerator, passwordGenerator);
     }
 
-    // ---------- updateTrainee ----------
-
     @Test
     void updateTrainee_partialRequest_updatesOnlyProvidedFields() {
         stubUpdateAppliesUpdaterTo(traineeEntity(1L, true));
@@ -142,13 +138,11 @@ class TraineeServiceTest {
                 () -> service.updateTrainee(new UpdateTrainee(1L, "Jack", null, null)));
     }
 
-    // ---------- deactivateTrainee ----------
-
     @Test
     void deactivateTrainee_existing_returnsInactiveTrainee() {
         stubUpdateAppliesUpdaterTo(traineeEntity(1L, true));
 
-        Trainee result = service.deactivateTrainee(1L);
+        Trainee result = service.deactivateTraineeById(1L);
 
         assertFalse(result.isActive());
         assertEquals(1L, result.id());
@@ -158,36 +152,33 @@ class TraineeServiceTest {
     void deactivateTrainee_traineeNotFound_propagatesItemNotFound() {
         when(traineeRepository.update(eq(1L), any())).thenThrow(new ItemNotFoundException(TraineeEntity.class, 1L));
 
-        assertThrows(ItemNotFoundException.class, () -> service.deactivateTrainee(1L));
+        assertThrows(ItemNotFoundException.class, () -> service.deactivateTraineeById(1L));
     }
-
-    // ---------- deleteTrainee ----------
 
     @Test
     void deleteTrainee_withTrainings_deletesTrainingsAndTrainee() {
         TraineeEntity trainee = traineeEntity(1L, true);
         when(trainingRepository.getByTraineeId(1L)).thenReturn(List.of(trainingEntity(10L, 1L), trainingEntity(11L, 1L)));
-        when(traineeRepository.delete(1L)).thenReturn(trainee);
+        when(traineeRepository.deleteById(1L)).thenReturn(trainee);
 
-        Trainee result = service.deleteTrainee(1L);
+        Trainee result = service.deleteTraineeById(1L);
 
         verify(trainingRepository).deleteById(10L);
         verify(trainingRepository).deleteById(11L);
-        verify(traineeRepository).delete(1L);
+        verify(traineeRepository).deleteById(1L);
         assertEquals(1L, result.id());
     }
 
     @Test
     void deleteTrainee_traineeNotFound_propagatesItemNotFound() {
         when(trainingRepository.getByTraineeId(1L)).thenReturn(List.of());
-        when(traineeRepository.delete(1L)).thenThrow(new ItemNotFoundException(TraineeEntity.class, 1L));
+        when(traineeRepository.deleteById(1L)).thenThrow(new ItemNotFoundException(TraineeEntity.class, 1L));
 
-        assertThrows(ItemNotFoundException.class, () -> service.deleteTrainee(1L));
+        assertThrows(ItemNotFoundException.class, () -> service.deleteTraineeById(1L));
 
         verify(trainingRepository, never()).deleteById(anyLong());
     }
 
-    // ---------- findTraineeById ----------
 
     @Test
     void findTraineeById_existing_returnsTrainee() {
@@ -205,7 +196,6 @@ class TraineeServiceTest {
         assertTrue(service.findTraineeById(1L).isEmpty());
     }
 
-    // ---------- getAll ----------
 
     @Test
     void getAll_returnsAllTrainees() {

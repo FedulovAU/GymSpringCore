@@ -21,11 +21,7 @@ import java.time.LocalDateTime;
 import java.util.List;
 import java.util.concurrent.locks.ReentrantLock;
 
-/**
- * Schedules, removes and lists training sessions.
- * For scheduling checks for schedule overlaps for both trainer and trainee.
- * Thread safe: locks per trainer and trainee to avoid race.
- */
+
 @Slf4j
 @Service
 public class TrainingService {
@@ -62,23 +58,19 @@ public class TrainingService {
         this.traineeLocks = traineeLocks;
     }
 
-    /**
-     * Schedules a new training. The training type is the trainer's specialization.
-     * @param request the request containing training details.
-     * @return the scheduled training, with assigned ID.
-     */
+
     public Training scheduleTraining(ScheduleTraining request) {
         RequestValidator.validateScheduleTrainingRequest(request);
 
-        // Lock order is always trainer first, then trainee, so two calls can't deadlock.
         ReentrantLock trainerLock = trainerLocks.get(request.trainerId());
         ReentrantLock traineeLock = traineeLocks.get(request.traineeId());
+
         trainerLock.lock();
         try {
             traineeLock.lock();
             try {
-                TrainerEntity trainer = findActiveTrainer(request.trainerId());
-                TraineeEntity trainee = findActiveTrainee(request.traineeId());
+                TrainerEntity trainer = findActiveTrainerById(request.trainerId());
+                TraineeEntity trainee = findActiveTraineeById(request.traineeId());
 
                 ensureNoOverlap(trainingRepository.getByTrainerId(trainer.id()), request, "Trainer");
                 ensureNoOverlap(trainingRepository.getByTraineeId(trainee.id()), request, "Trainee");
@@ -103,25 +95,19 @@ public class TrainingService {
         }
     }
 
-    /**
-     * Removes a training by its ID.
-     * @param id the unique identifier of the training to remove.
-     * @return the removed training.
-     */
-    public Training removeTraining(long id) {
+
+    public Training removeTrainingById(long id) {
         var result = EntityMapper.toTraining(trainingRepository.deleteById(id));
         log.info("removeTraining completed, id={}, traineeId={}, trainerId={}", result.id(), result.traineeId(), result.trainerId());
         return result;
     }
 
-    /**
-     * @return all trainings.
-     */
+
     public List<Training> getAll() {
         return trainingRepository.getAll().stream().map(EntityMapper::toTraining).toList();
     }
 
-    private TrainerEntity findActiveTrainer(long id) {
+    private TrainerEntity findActiveTrainerById(long id) {
         TrainerEntity trainer = trainerRepository.getById(id)
                 .orElseThrow(() -> new CannotScheduleTrainingException("Trainer with ID " + id + " does not exist."));
         if (!trainer.user().isActive()) {
@@ -130,7 +116,7 @@ public class TrainingService {
         return trainer;
     }
 
-    private TraineeEntity findActiveTrainee(long id) {
+    private TraineeEntity findActiveTraineeById(long id) {
         TraineeEntity trainee = traineeRepository.getById(id)
                 .orElseThrow(() -> new CannotScheduleTrainingException("Trainee with ID " + id + " does not exist."));
         if (!trainee.user().isActive()) {
@@ -139,9 +125,7 @@ public class TrainingService {
         return trainee;
     }
 
-    /**
-     * Throws if the requested time slot overlaps with any of the existing trainings.
-     */
+
     private static void ensureNoOverlap(List<TrainingEntity> existing, ScheduleTraining request, String who) {
         LocalDateTime newTrainingStart = request.trainingDate();
         LocalDateTime newTrainingEnd = newTrainingStart.plus(request.duration());

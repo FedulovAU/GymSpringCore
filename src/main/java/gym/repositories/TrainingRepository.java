@@ -40,10 +40,7 @@ public class TrainingRepository {
         return storage.getItem(TrainingEntity.class, id);
     }
 
-    /**
-     * Deletes a training.
-     * @param id the unique identifier of the training to delete.
-     */
+
     public TrainingEntity deleteById(long id){
         return storage.deleteItem(TrainingEntity.class, id);
     }

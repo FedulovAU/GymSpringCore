@@ -1,7 +1,7 @@
 package gym.services;
 
 import gym.data.entities.TrainerEntity;
-import gym.data.entities.common.UserData;
+import gym.data.common.UserData;
 import gym.data.entities.enums.TrainingTypeEntity;
 import gym.data.storage.exceptions.ItemNotFoundException;
 import gym.repositories.TrainerRepository;
@@ -59,7 +59,6 @@ class TrainerServiceTest {
                 TrainingTypeEntity.Crossfit);
     }
 
-    /** Makes the mocked update apply the service's updater to the given entity, like the real storage does. */
     private void stubUpdateAppliesUpdaterTo(TrainerEntity existing) {
         when(trainerRepository.update(eq(existing.id()), any())).thenAnswer(invocation -> {
             UnaryOperator<TrainerEntity> updater = invocation.getArgument(1);
@@ -67,7 +66,6 @@ class TrainerServiceTest {
         });
     }
 
-    // ---------- createTrainer ----------
 
     @Test
     void createTrainer_validRequest_returnsCreatedTrainer() {
@@ -100,7 +98,6 @@ class TrainerServiceTest {
         verifyNoInteractions(trainerRepository, userNameGenerator, passwordGenerator);
     }
 
-    // ---------- updateTrainer ----------
 
     @Test
     void updateTrainer_partialRequest_updatesOnlyProvidedFields() {
@@ -127,13 +124,12 @@ class TrainerServiceTest {
                 () -> service.updateTrainer(new UpdateTrainer(1L, "Anna", null, null)));
     }
 
-    // ---------- deactivateTrainer ----------
 
     @Test
     void deactivateTrainer_existing_returnsInactiveTrainer() {
         stubUpdateAppliesUpdaterTo(trainerEntity(1L, true));
 
-        Trainer result = service.deactivateTrainer(1L);
+        Trainer result = service.deactivateTrainerById(1L);
 
         assertFalse(result.isActive());
         assertEquals(1L, result.id());
@@ -143,10 +139,9 @@ class TrainerServiceTest {
     void deactivateTrainer_trainerNotFound_propagatesItemNotFound() {
         when(trainerRepository.update(eq(1L), any())).thenThrow(new ItemNotFoundException(TrainerEntity.class, 1L));
 
-        assertThrows(ItemNotFoundException.class, () -> service.deactivateTrainer(1L));
+        assertThrows(ItemNotFoundException.class, () -> service.deactivateTrainerById(1L));
     }
 
-    // ---------- findTrainerById ----------
 
     @Test
     void findTrainerById_existing_returnsTrainer() {
@@ -164,7 +159,6 @@ class TrainerServiceTest {
         assertTrue(service.findTrainerById(1L).isEmpty());
     }
 
-    // ---------- getAll ----------
 
     @Test
     void getAll_returnsAllTrainers() {

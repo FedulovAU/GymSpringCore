@@ -15,11 +15,7 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.List;
 
-/**
- * Stores the storage content to JSON files and loads it back, keeping entity IDs.
- * Each entity type is kept in its own file named by the type's fully qualified name, e.g.
- * "gym.data.entities.TraineeEntity.json", containing a JSON array of entities.
- */
+
 public class MemStorageSnapshot {
 
     private final SnapshotOptions options;
@@ -32,26 +28,17 @@ public class MemStorageSnapshot {
         this.options = options;
     }
 
-    /**
-     * Creates a storage filled from the configured input source.
-     * @return a new storage; empty for {@link SnapshotOptions.None}.
-     */
     public MemStorage load() {
         MemStorage storage = new MemStorage();
         loadInto(storage);
         return storage;
     }
 
-    /**
-     * Fills an existing storage from the configured input source, keeping entity IDs.
-     * Does nothing for {@link SnapshotOptions.None}.
-     * @param target the storage to fill, expected to be empty.
-     */
     public void loadInto(MemStorage target) {
         if (target == null) {
             throw new IllegalArgumentException("Target storage cannot be null.");
         }
-        if (options instanceof SnapshotOptions.None) {
+        if (options instanceof SnapshotOptions.FromEmptyStorage) {
             return;
         }
         loadType(target, TraineeEntity.class);
@@ -59,12 +46,6 @@ public class MemStorageSnapshot {
         loadType(target, TrainingEntity.class);
     }
 
-    /**
-     * Writes all items of the snapshot types to JSON files in the given directory, creating it if needed.
-     * Existing snapshot files in the directory are overwritten.
-     * @param storage the storage to store.
-     * @param outputDirectory the directory to write the files to.
-     */
     public void store(MemStorage storage, Path outputDirectory) {
         try {
             Files.createDirectories(outputDirectory);
@@ -100,10 +81,6 @@ public class MemStorageSnapshot {
         }
     }
 
-    /**
-     * Opens a snapshot file from the configured source.
-     * @return the file's stream, or null if the file doesn't exist.
-     */
     private InputStream open(String fileName) throws IOException {
         return switch (options) {
             case SnapshotOptions.FromDirectory directory -> {
@@ -114,7 +91,7 @@ public class MemStorageSnapshot {
                 String resource = resources.classPath() + "/" + fileName;
                 yield MemStorageSnapshot.class.getClassLoader().getResourceAsStream(resource);
             }
-            case SnapshotOptions.None none -> null;
+            case SnapshotOptions.FromEmptyStorage none -> null;
         };
     }
 

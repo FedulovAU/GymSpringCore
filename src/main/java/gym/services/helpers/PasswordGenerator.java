@@ -4,9 +4,6 @@ import org.springframework.stereotype.Component;
 
 import java.security.SecureRandom;
 
-/**
- * Generates a password consisting of numbers, capital letters, and small letters.
- */
 @Component
 public class PasswordGenerator {
     private static final String ALPHABET =

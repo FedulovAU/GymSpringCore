@@ -13,10 +13,7 @@ import org.springframework.stereotype.Service;
 import java.util.List;
 import java.util.Optional;
 
-/**
- * Single entry point to the gym's public API. Delegates to {@link TraineeService},
- * {@link TrainerService} and {@link TrainingService}; see them for details and thrown exceptions.
- */
+
 @Service
 public class GymFacade {
     private final TraineeService traineeService;
@@ -42,15 +39,12 @@ public class GymFacade {
         return traineeService.updateTrainee(request);
     }
 
-    public Trainee deactivateTrainee(long id) {
-        return traineeService.deactivateTrainee(id);
+    public Trainee deactivateTraineeById(long id) {
+        return traineeService.deactivateTraineeById(id);
     }
 
-    /**
-     * Deletes the trainee and all their trainings.
-     */
-    public Trainee deleteTrainee(long id) {
-        return traineeService.deleteTrainee(id);
+    public Trainee deleteTraineeById(long id) {
+        return traineeService.deleteTraineeById(id);
     }
 
     public Optional<Trainee> findTraineeById(long id) {
@@ -71,8 +65,8 @@ public class GymFacade {
         return trainerService.updateTrainer(request);
     }
 
-    public Trainer deactivateTrainer(long id) {
-        return trainerService.deactivateTrainer(id);
+    public Trainer deactivateTrainerById(long id) {
+        return trainerService.deactivateTrainerById(id);
     }
 
     public Optional<Trainer> findTrainerById(long id) {
@@ -89,8 +83,8 @@ public class GymFacade {
         return trainingService.scheduleTraining(request);
     }
 
-    public Training removeTraining(long id) {
-        return trainingService.removeTraining(id);
+    public Training removeTrainingById(long id) {
+        return trainingService.removeTrainingById(id);
     }
 
     public List<Training> getAllTrainings() {

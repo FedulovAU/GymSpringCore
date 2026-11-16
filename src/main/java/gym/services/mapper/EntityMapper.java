@@ -9,9 +9,7 @@ import gym.services.dto.responses.Trainee;
 import gym.services.dto.responses.Trainer;
 import gym.services.dto.responses.Training;
 
-/**
- * Maps storage entities to service DTOs and back.
- */
+
 public final class EntityMapper {
 
     private EntityMapper() {}
@@ -47,11 +45,6 @@ public final class EntityMapper {
                 training.trainingDuration());
     }
 
-    /**
-     * Maps a DTO training type to the entity training type.
-     * @param trainingType the DTO training type, may be null.
-     * @return the corresponding entity training type, or null if trainingType is null.
-     */
     public static TrainingTypeEntity toTrainingTypeEntity(TrainingType trainingType) {
         if (trainingType == null) {
             return null;
@@ -63,11 +56,6 @@ public final class EntityMapper {
         };
     }
 
-    /**
-     * Maps an entity training type to the DTO training type.
-     * @param trainingTypeEntity the entity training type, may be null.
-     * @return the corresponding DTO training type, or null if trainingTypeEntity is null.
-     */
     public static TrainingType toTrainingType(TrainingTypeEntity trainingTypeEntity) {
         if (trainingTypeEntity == null) {
             return null;

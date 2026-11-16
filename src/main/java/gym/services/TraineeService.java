@@ -1,7 +1,7 @@
 package gym.services;
 
 import gym.data.entities.TraineeEntity;
-import gym.data.entities.common.UserData;
+import gym.data.common.UserData;
 import gym.repositories.TrainingRepository;
 import gym.services.dto.requests.CreateTrainee;
 import gym.services.dto.requests.UpdateTrainee;
@@ -54,19 +54,10 @@ public class TraineeService {
         this.traineeLocks = traineeLocks;
     }
 
-    /**
-     * Creates a new trainee.
-     * @param request the request containing trainee details.
-     * @return the created trainee, with unique username and assigned ID.
-     */
     public Trainee createTrainee(CreateTrainee request) {
-        // Check for null or invalid fields in the request.
         RequestValidator.validateCreateTraineeRequest(request);
-
-        // Create unique username.
         String userName = userNameGenerator.generateUniqueUserName(request.firstName(), request.lastName());
 
-        // Store new trainee.
         TraineeEntity traineeEntity = traineeRepository.add(new TraineeEntity(
                 null,
                 new UserData(
@@ -78,22 +69,15 @@ public class TraineeService {
                 request.birthDate()
         ));
 
-        // Map stored entity to the result.
         var result = EntityMapper.toTrainee(traineeEntity);
         log.info("createTrainee completed, id={}.", result.id());
         return result;
     }
 
-    /**
-     * Updates an existing trainee's information.
-     * @param request the request containing updated trainee details.
-     * The username is the login and stays the same, even if first name or last name is changed.
-     * @return the updated trainee.
-     */
+
     public Trainee updateTrainee(UpdateTrainee request) {
         RequestValidator.validateUpdateTraineeRequest(request);
 
-        // Read-modify-write runs atomically inside the storage.
         TraineeEntity updatedTrainee = traineeRepository.update(request.id(), existing -> applyUpdate(existing, request));
 
         var result = EntityMapper.toTrainee(updatedTrainee);
@@ -101,14 +85,11 @@ public class TraineeService {
         return result;
     }
 
-    /**
-     * Soft deletes a trainee by their ID: the trainee stays in storage, but is marked as inactive.
-     * @param id the unique identifier of the trainee to be deactivated.
-     * @return the deactivated trainee.
-     */
-    public Trainee deactivateTrainee(long id) {
+
+    public Trainee deactivateTraineeById(long id) {
         var lock = traineeLocks.get(id);
         lock.lock();
+
         try{
             TraineeEntity deactivated = traineeRepository.update(id, trainee -> trainee.withUser(trainee.user().withActive(false)));
             var result = EntityMapper.toTrainee(deactivated);
@@ -119,22 +100,19 @@ public class TraineeService {
         }
     }
 
-    /**
-     * Deletes a trainee by their ID, removes all training sessions for that trainee.
-     * @param id
-     * @return the deleted trainee.
-     */
-    public Trainee deleteTrainee(long id) {
+    public Trainee deleteTraineeById(long id) {
         var lock = traineeLocks.get(id);
         lock.lock();
+
         try {
             trainingRepository.getByTraineeId(id).forEach(training -> {
                 trainingRepository.deleteById(training.id());
                 log.info("deleted training id={} caused by deletion of trainee id={}", training.id(), id);
             });
+
             // Delete trainee the last, so if some training is impossible to delete, trainee remains, and we can retry and do clean up.
             // Otherwise, we may delete trainee, but not all trainings, leaving them orphaned.
-            TraineeEntity deleted = traineeRepository.delete(id);
+            TraineeEntity deleted = traineeRepository.deleteById(id);
             var result = EntityMapper.toTrainee(deleted);
             log.info("deleteTrainee completed, id={}.", result.id());
             return result;
@@ -143,11 +121,7 @@ public class TraineeService {
         }
     }
 
-    /**
-     * Finds a trainee by their ID.
-     * @param id
-     * @return an Optional containing the Trainee if found, or empty if not found.
-     */
+
     public Optional<Trainee> findTraineeById(long id) {
         return traineeRepository.getById(id).map(EntityMapper::toTrainee);
     }
@@ -156,9 +130,6 @@ public class TraineeService {
         return traineeRepository.getAll().stream().map(EntityMapper::toTrainee).toList();
     }
 
-    /**
-     * Applies the provided (non-null) fields of the request to the trainee. Username is never changed.
-     */
     private static TraineeEntity applyUpdate(TraineeEntity trainee, UpdateTrainee request) {
         var userData = trainee.user();
 

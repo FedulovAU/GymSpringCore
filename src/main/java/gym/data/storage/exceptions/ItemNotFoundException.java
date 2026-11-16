@@ -1,8 +1,6 @@
 package gym.data.storage.exceptions;
 
-/**
- * Thrown when an item of the given type and ID doesn't exist in the storage.
- */
+
 public class ItemNotFoundException extends RuntimeException {
     private final Class<?> type;
     private final long id;

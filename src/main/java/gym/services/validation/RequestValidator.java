@@ -6,9 +6,7 @@ import gym.services.dto.requests.ScheduleTraining;
 import gym.services.dto.requests.UpdateTrainee;
 import gym.services.dto.requests.UpdateTrainer;
 
-/**
- * Validates service requests: checks that don't need storage access.
- */
+
 public final class RequestValidator {
     private static final String userNamePattern = "\\p{L}+";
 

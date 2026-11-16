@@ -3,7 +3,7 @@ package gym.services;
 import gym.data.entities.TraineeEntity;
 import gym.data.entities.TrainerEntity;
 import gym.data.entities.TrainingEntity;
-import gym.data.entities.common.UserData;
+import gym.data.common.UserData;
 import gym.data.entities.enums.TrainingTypeEntity;
 import gym.data.storage.exceptions.ItemNotFoundException;
 import gym.repositories.TraineeRepository;
@@ -95,7 +95,6 @@ class TrainingServiceTest {
         });
     }
 
-    // ---------- scheduleTraining ----------
 
     @Test
     void scheduleTraining_noConflicts_returnsScheduledTraining() {
@@ -179,13 +178,12 @@ class TrainingServiceTest {
         assertEquals(100L, result.id());
     }
 
-    // ---------- removeTraining ----------
 
     @Test
     void removeTraining_existing_returnsRemovedTraining() {
         when(trainingRepository.deleteById(50L)).thenReturn(trainingEntity(50L, START, ONE_HOUR));
 
-        Training result = service.removeTraining(50L);
+        Training result = service.removeTrainingById(50L);
 
         assertEquals(new Training(50L, TRAINEE_ID, TRAINER_ID, "Existing", TrainingType.Crossfit, START, ONE_HOUR), result);
     }
@@ -194,10 +192,9 @@ class TrainingServiceTest {
     void removeTraining_notFound_propagatesItemNotFound() {
         when(trainingRepository.deleteById(50L)).thenThrow(new ItemNotFoundException(TrainingEntity.class, 50L));
 
-        assertThrows(ItemNotFoundException.class, () -> service.removeTraining(50L));
+        assertThrows(ItemNotFoundException.class, () -> service.removeTrainingById(50L));
     }
 
-    // ---------- getAll ----------
 
     @Test
     void getAll_returnsAllTrainings() {

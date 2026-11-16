@@ -6,10 +6,6 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.config.BeanPostProcessor;
 import org.springframework.stereotype.Component;
 
-/**
- * Fills the {@link MemStorage} bean with prepared data from the snapshot as soon as Spring creates it,
- * before it's injected into any repository.
- */
 @Slf4j
 @Component
 public class StorageInitializer implements BeanPostProcessor {

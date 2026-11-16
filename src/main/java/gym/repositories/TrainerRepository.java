@@ -25,12 +25,6 @@ public class TrainerRepository {
         return storage.getAllItems(TrainerEntity.class);
     }
 
-    /**
-     * Atomically updates a trainer.
-     * @param id the unique identifier of the trainer to update.
-     * @param updater receives the current trainer and returns its new version, must keep the ID.
-     * @return the updated trainer.
-     */
     public TrainerEntity update(long id, UnaryOperator<TrainerEntity> updater){
         return storage.updateItem(TrainerEntity.class, id, updater);
     }

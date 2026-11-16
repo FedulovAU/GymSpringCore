@@ -25,17 +25,11 @@ public class TraineeRepository {
         return storage.getAllItems(TraineeEntity.class);
     }
 
-    /**
-     * Atomically updates a trainee.
-     * @param id the unique identifier of the trainee to update.
-     * @param updater receives the current trainee and returns its new version, must keep the ID.
-     * @return the updated trainee.
-     */
     public TraineeEntity update(long id, UnaryOperator<TraineeEntity> updater){
         return storage.updateItem(TraineeEntity.class, id, updater);
     }
 
-    public TraineeEntity delete(long id){
+    public TraineeEntity deleteById(long id){
         return storage.deleteItem(TraineeEntity.class, id);
     }
 

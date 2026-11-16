@@ -35,7 +35,6 @@ class MemStorageTest {
         storage = new MemStorage();
     }
 
-    // ---------- addItem ----------
 
     @Test
     void addItem_noBaket_returnsItemWithIdAndStoresIt() {
@@ -75,7 +74,6 @@ class MemStorageTest {
         assertEquals(count, ids.size());
     }
 
-    // ---------- updateItem ----------
 
     @Test
     void updateItem_itemExists_returnsAndStoresNewVersion() {
@@ -130,7 +128,6 @@ class MemStorageTest {
         assertEquals(Optional.of(added), storage.getItem(EntityA.class, added.id()));
     }
 
-    // ---------- deleteItem ----------
 
     @Test
     void deleteItem_itemExists_removesIt() {
@@ -162,7 +159,6 @@ class MemStorageTest {
         assertEquals(missingId, ex.getId());
     }
 
-    // ---------- getItem ----------
 
     @Test
     void getItem_itemExists_returnsIt() {
@@ -183,7 +179,6 @@ class MemStorageTest {
         assertEquals(Optional.empty(), storage.getItem(EntityA.class, added.id() + 1));
     }
 
-    // ---------- getAllItems ----------
 
     @Test
     void getAllItems_itemsOfTwoTypes_returnsOnlyRequestedType() {
@@ -212,7 +207,6 @@ class MemStorageTest {
         assertTrue(storage.getAllItems(EntityA.class).isEmpty());
     }
 
-    // ---------- restoreItems ----------
 
     @Test
     void restoreItems_itemsWithIds_keepsIdsAndStoresThem() {
