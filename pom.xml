@@ -19,6 +19,7 @@
         <slf4j.version>2.0.17</slf4j.version>
         <logback.version>1.5.18</logback.version>
         <junit.version>6.1.3</junit.version>
+        <assertj.version>3.27.7</assertj.version>
         <mockito.version>5.24.0</mockito.version>
         <!-- Mockito 5.24.0 ships Byte Buddy 1.17.7, which doesn't support Java 27 class files.
              1.18.15+ supports up to Java 28, so we override it below. -->
@@ -89,6 +90,12 @@
             <scope>test</scope>
         </dependency>
         <dependency>
+            <groupId>org.assertj</groupId>
+            <artifactId>assertj-core</artifactId>
+            <version>${assertj.version}</version>
+            <scope>test</scope>
+        </dependency>
+        <dependency>
             <groupId>org.mockito</groupId>
             <artifactId>mockito-core</artifactId>
             <version>${mockito.version}</version>
@@ -98,6 +105,12 @@
             <groupId>org.mockito</groupId>
             <artifactId>mockito-junit-jupiter</artifactId>
             <version>${mockito.version}</version>
+            <scope>test</scope>
+        </dependency>
+        <dependency>
+            <groupId>org.springframework</groupId>
+            <artifactId>spring-test</artifactId>
+            <version>7.0.10</version>
             <scope>test</scope>
         </dependency>
     </dependencies>
@@ -142,6 +155,17 @@
                 <version>3.6.1</version>
                 <configuration>
                     <argLine>-javaagent:${org.mockito:mockito-core:jar}</argLine>
+                </configuration>
+            </plugin>
+
+            <!-- Runs the application: mvn compile exec:java
+                 Starts gym.Program inside Maven's JVM with the project's runtime classpath. -->
+            <plugin>
+                <groupId>org.codehaus.mojo</groupId>
+                <artifactId>exec-maven-plugin</artifactId>
+                <version>3.5.0</version>
+                <configuration>
+                    <mainClass>gym.Program</mainClass>
                 </configuration>
             </plugin>
         </plugins>

@@ -1,0 +1,43 @@
+[ {
+  "traineeId" : 1,
+  "trainerId" : 5,
+  "trainingName" : "Morning WOD",
+  "trainingType" : 2,
+  "trainingDate" : "2026-12-01T09:00:00",
+  "trainingDuration" : "PT1H"
+}, {
+  "traineeId" : 3,
+  "trainerId" : 5,
+  "trainingName" : "Midday WOD",
+  "trainingType" : 2,
+  "trainingDate" : "2026-12-01T12:00:00",
+  "trainingDuration" : "PT1H"
+}, {
+  "traineeId" : 2,
+  "trainerId" : 6,
+  "trainingName" : "Leg day",
+  "trainingType" : 1,
+  "trainingDate" : "2026-12-01T09:00:00",
+  "trainingDuration" : "PT1H30M"
+}, {
+  "traineeId" : 1,
+  "trainerId" : 6,
+  "trainingName" : "Upper body",
+  "trainingType" : 1,
+  "trainingDate" : "2026-12-02T09:00:00",
+  "trainingDuration" : "PT1H30M"
+}, {
+  "traineeId" : 4,
+  "trainerId" : 7,
+  "trainingName" : "Cardio",
+  "trainingType" : 3,
+  "trainingDate" : "2026-12-01T10:00:00",
+  "trainingDuration" : "PT1H"
+}, {
+  "traineeId" : 3,
+  "trainerId" : 7,
+  "trainingName" : "Stretching",
+  "trainingType" : 3,
+  "trainingDate" : "2026-12-03T09:00:00",
+  "trainingDuration" : "PT1H"
+} ]

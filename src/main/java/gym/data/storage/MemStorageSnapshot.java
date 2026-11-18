@@ -1,8 +1,4 @@
 package gym.data.storage;
-
-import gym.data.entities.TraineeEntity;
-import gym.data.entities.TrainerEntity;
-import gym.data.entities.TrainingEntity;
 import tools.jackson.core.JacksonException;
 import tools.jackson.databind.ObjectMapper;
 import tools.jackson.databind.json.JsonMapper;
@@ -18,53 +14,29 @@ import java.util.List;
 
 public class MemStorageSnapshot {
 
-    private final SnapshotOptions options;
+    private final String resourceLocation;
     private final ObjectMapper mapper = JsonMapper.builder().build();
 
-    public MemStorageSnapshot(SnapshotOptions options) {
-        if (options == null) {
-            throw new IllegalArgumentException("Snapshot options cannot be null.");
+    public MemStorageSnapshot(String resourceLocation) {
+        if (resourceLocation == null || resourceLocation.isBlank()) {
+            throw new IllegalArgumentException("ResourceLocation can't be null or empty");
         }
-        this.options = options;
+        this.resourceLocation = resourceLocation;
     }
 
-    public MemStorage load() {
-        MemStorage storage = new MemStorage();
-        loadInto(storage);
-        return storage;
-    }
-
-    public void loadInto(MemStorage target) {
+    public <TEntity, TKey>void loadInto(Storage<TEntity, TKey> target) {
         if (target == null) {
             throw new IllegalArgumentException("Target storage cannot be null.");
         }
-        if (options instanceof SnapshotOptions.FromEmptyStorage) {
-            return;
-        }
-        loadType(target, TraineeEntity.class);
-        loadType(target, TrainerEntity.class);
-        loadType(target, TrainingEntity.class);
-    }
 
-    public void store(MemStorage storage, Path outputDirectory) {
-        try {
-            Files.createDirectories(outputDirectory);
-        } catch (IOException e) {
-            throw new UncheckedIOException("Cannot create snapshot directory " + outputDirectory + ".", e);
-        }
-        storeType(storage, TraineeEntity.class, outputDirectory);
-        storeType(storage, TrainerEntity.class, outputDirectory);
-        storeType(storage, TrainingEntity.class, outputDirectory);
-    }
-
-    private <T extends EntityWithId<T>> void loadType(MemStorage storage, Class<T> type) {
-        String fileName = fileName(type);
+        String fileName = fileName(target.getType());
         try (InputStream in = open(fileName)) {
             if (in == null) {
                 return; // no file: no items of this type
             }
-            List<T> items = mapper.readerForListOf(type).readValue(in);
-            storage.restoreItems(type, items);
+            List<TEntity> items = mapper.readerForListOf(target.getType()).readValue(in);
+            items.forEach(target::put);
+
         } catch (IOException e) {
             throw new UncheckedIOException("Cannot read snapshot file " + fileName + ".", e);
         } catch (JacksonException e) {
@@ -72,27 +44,24 @@ public class MemStorageSnapshot {
         }
     }
 
-    private <T extends EntityWithId<T>> void storeType(MemStorage storage, Class<T> type, Path outputDirectory) {
-        Path file = outputDirectory.resolve(fileName(type));
+    public <TEntity, TKey> void store(Class<TEntity> type, Storage<TEntity, TKey> storage, Path outputDirectory) {
+        try {
+            Files.createDirectories(outputDirectory);
+        } catch (IOException e) {
+            throw new UncheckedIOException("Cannot create snapshot directory " + outputDirectory + ".", e);
+        }
+
+        Path file = outputDirectory.resolve(fileName(storage.getType()));
         try (OutputStream out = Files.newOutputStream(file)) {
-            mapper.writerWithDefaultPrettyPrinter().writeValue(out, storage.getAllItems(type));
+            mapper.writerWithDefaultPrettyPrinter().writeValue(out, storage.getAll());
         } catch (IOException e) {
             throw new UncheckedIOException("Cannot write snapshot file " + file + ".", e);
         }
     }
 
     private InputStream open(String fileName) throws IOException {
-        return switch (options) {
-            case SnapshotOptions.FromDirectory directory -> {
-                Path file = directory.path().resolve(fileName);
-                yield Files.exists(file) ? Files.newInputStream(file) : null;
-            }
-            case SnapshotOptions.FromResources resources -> {
-                String resource = resources.classPath() + "/" + fileName;
-                yield MemStorageSnapshot.class.getClassLoader().getResourceAsStream(resource);
-            }
-            case SnapshotOptions.FromEmptyStorage none -> null;
-        };
+        String resource = resourceLocation + "/" + fileName;
+        return MemStorageSnapshot.class.getClassLoader().getResourceAsStream(resource);
     }
 
     private static String fileName(Class<?> type) {
