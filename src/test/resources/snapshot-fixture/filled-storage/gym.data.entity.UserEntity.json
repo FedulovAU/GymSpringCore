@@ -1,0 +1,20 @@
+[
+  {
+    "id" : 1,
+    "firstName" : "Anna",
+    "lastName" : "Lee",
+    "userName" : "Anna_Lee",
+    "userNameSuffix" : 0,
+    "password" : "secret67890",
+    "isActive" : false
+  },
+  {
+    "id" : 5,
+    "firstName" : "Mia",
+    "lastName" : "Wong",
+    "userName" : "Mia_Wong_1",
+    "userNameSuffix" : 1,
+    "password" : "fixturePass",
+    "isActive" : true
+  }
+]

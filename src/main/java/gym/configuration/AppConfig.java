@@ -1,10 +1,16 @@
 package gym.configuration;
 
-import gym.data.storage.SnapshotOptions;
+import gym.data.entity.TraineeEntity;
+import gym.data.entity.TrainerEntity;
+import gym.data.entity.TrainingEntity;
+import gym.data.entity.UserEntity;
+import gym.data.storage.Storage;
+import gym.data.storage.aggregated.AggregatedValueStorage;
 import gym.data.storage.MemStorageSnapshot;
-import gym.repositories.TraineeRepository;
-import gym.repositories.TrainerRepository;
-import gym.services.helpers.UniqueUsernameGenerator;
+import gym.data.storage.autoincrement.AutoIncrementStorage;
+import gym.data.storage.keyed.KeyStorage;
+import gym.repository.user.UserAggregateRule;
+import gym.repository.user.UserKeyAutoincrement;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.ComponentScan;
 import org.springframework.context.annotation.Configuration;
@@ -13,16 +19,12 @@ import org.springframework.context.annotation.Role;
 import org.springframework.beans.factory.config.BeanDefinition;
 import org.springframework.core.env.Environment;
 
-import java.nio.file.Path;
-import java.util.stream.Stream;
-
 @Configuration
 @ComponentScan(basePackages = "gym")
 @PropertySource(value = "classpath:appConfig.properties")
 public class AppConfig {
 
-    static final String INPUT_TYPE_PROPERTY = "storage.snapshot.input.type";
-    static final String INPUT_LOCATION_PROPERTY = "storage.snapshot.input.location";
+    static final String INPUT_LOCATION_PROPERTY = "storage.snapshot.location";
 
     /**
      * Static, because {@link StorageInitializer} (a bean post-processor) depends on it.
@@ -30,32 +32,32 @@ public class AppConfig {
     @Bean
     @Role(BeanDefinition.ROLE_INFRASTRUCTURE)
     public static MemStorageSnapshot memStorageSnapshot(Environment environment) {
-        String type = environment.getProperty(INPUT_TYPE_PROPERTY, "none").strip().toLowerCase();
         String location = environment.getProperty(INPUT_LOCATION_PROPERTY);
+        return new MemStorageSnapshot(location);
+    }
 
-        if (location == null || location.isBlank()) {
-            throw new IllegalStateException(INPUT_LOCATION_PROPERTY + " is not set");
-        }
+    @Bean
+    public Storage<TraineeEntity, Long> traineeStorage() {
+        return new KeyStorage<>(TraineeEntity.class, TraineeEntity::getId);
+    }
 
-        var options = switch (type) {
-            case "none" -> new SnapshotOptions.FromEmptyStorage();
-            case "resources" -> new SnapshotOptions.FromResources(location);
-            case "directory" -> new SnapshotOptions.FromDirectory(Path.of(location));
-            default -> throw new IllegalStateException("Unknown " + INPUT_TYPE_PROPERTY + ": '" + type
-                    + "'. Expected one of: resources, directory, none.");
-        };
-        return new MemStorageSnapshot(options);
+    @Bean
+    public Storage<TrainerEntity, Long> trainerStorage() {
+        return new KeyStorage<>(TrainerEntity.class, TrainerEntity::getId);
+    }
+
+    @Bean
+    public Storage<UserEntity, Long> userStorage(UserAggregateRule userAggregateRule, UserKeyAutoincrement keyAutoincrement) {
+        var keyStorage = new KeyStorage<UserEntity, Long>(UserEntity.class, UserEntity::getId);
+        var autoIncrementStorage = new AutoIncrementStorage<UserEntity, Long>(keyStorage, keyAutoincrement);
+        return new AggregatedValueStorage<>(autoIncrementStorage, userAggregateRule);
     }
 
 
     @Bean
-    public UniqueUsernameGenerator uniqueUsernameGenerator(
-            TraineeRepository traineeRepository,
-            TrainerRepository trainerRepository) {
-        var existingUserNames = Stream.concat(
-                        traineeRepository.getAll().stream().map(trainee -> trainee.user().userName()),
-                        trainerRepository.getAll().stream().map(trainer -> trainer.user().userName())
-                ).toList();
-        return new UniqueUsernameGenerator(existingUserNames);
+    public Storage<TrainingEntity, TrainingEntity.CompositeKey> trainingStorage() {
+        return new KeyStorage<>(
+                TrainingEntity.class,
+                t -> new TrainingEntity.CompositeKey(t.getTrainerId(), t.getTraineeId()));
     }
 }

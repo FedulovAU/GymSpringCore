@@ -1,108 +1,136 @@
 package gym.data.storage;
 
-import gym.data.entities.TraineeEntity;
-import gym.data.entities.TrainerEntity;
-import gym.data.entities.TrainingEntity;
-import gym.data.common.UserData;
-import gym.data.entities.enums.TrainingTypeEntity;
+import gym.data.entity.TraineeEntity;
+import gym.data.entity.TrainerEntity;
+import gym.data.entity.TrainingEntity;
+import gym.data.entity.UserEntity;
+import gym.data.enums.TrainingType;
+import gym.data.storage.keyed.KeyStorage;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
+import tools.jackson.databind.json.JsonMapper;
 
+import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.time.Duration;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
-import java.util.Set;
+import java.util.List;
 
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.junit.jupiter.api.Assertions.*;
 
 class MemStorageSnapshotTest {
 
-    @TempDir
-    private Path tempDir;
+    private static final String FILLED = "snapshot-fixture/filled-storage";
+    private static final String INVALID = "snapshot-fixture/invalid-storage";
 
-    private static MemStorage filledStorage() {
-        MemStorage storage = new MemStorage();
-        TraineeEntity trainee = storage.addItem(TraineeEntity.class, new TraineeEntity(null,
-                new UserData("John", "Smith", "John_Smith", "secret12345", true),
-                LocalDate.of(1990, 5, 17)));
-        TrainerEntity trainer = storage.addItem(TrainerEntity.class, new TrainerEntity(null,
-                new UserData("Anna", "Lee", "Anna_Lee", "secret67890", false),
-                TrainingTypeEntity.Crossfit));
-        storage.addItem(TrainingEntity.class, new TrainingEntity(null, trainee.id(), trainer.id(), "Morning",
-                TrainingTypeEntity.Crossfit, LocalDateTime.of(2026, 12, 1, 10, 0), Duration.ofMinutes(90)));
-        return storage;
+    private record Storages(
+            Storage<UserEntity, Long> users,
+            Storage<TraineeEntity, Long> trainees,
+            Storage<TrainerEntity, Long> trainers,
+            Storage<TrainingEntity, TrainingEntity.CompositeKey> trainings) {
+
+        static Storages empty() {
+            return new Storages(
+                    new KeyStorage<>(UserEntity.class, UserEntity::getId),
+                    new KeyStorage<>(TraineeEntity.class, TraineeEntity::getId),
+                    new KeyStorage<>(TrainerEntity.class, TrainerEntity::getId),
+                    new KeyStorage<>(TrainingEntity.class,
+                            t -> new TrainingEntity.CompositeKey(t.getTrainerId(), t.getTraineeId())));
+        }
+
+        /** The same data as the files in {@link #FILLED}. */
+        static Storages filled() {
+            Storages storages = empty();
+            storages.users().put(new UserEntity(1L, "Anna", "Lee", "Anna_Lee", 0L, "secret67890", false));
+            storages.users().put(new UserEntity(5L, "Mia", "Wong", "Mia_Wong_1", 1L, "fixturePass", true));
+            storages.trainees().put(new TraineeEntity(5L, LocalDate.of(1995, 3, 2)));
+            storages.trainers().put(new TrainerEntity(1L, TrainingType.CROSSFIT));
+            storages.trainings().put(new TrainingEntity(5L, 1L, "Morning",
+                    TrainingType.CROSSFIT, LocalDateTime.of(2026, 12, 1, 10, 0), Duration.ofMinutes(90)));
+            return storages;
+        }
+
+        List<Storage<?, ?>> all() {
+            return List.of(users, trainees, trainers, trainings);
+        }
     }
 
-    private static <T extends EntityWithId<T>> void assertSameItems(MemStorage expected, MemStorage actual, Class<T> type) {
-        assertEquals(Set.copyOf(expected.getAllItems(type)), Set.copyOf(actual.getAllItems(type)));
+    private static <T> void assertSameItems(Storage<T, ?> expected, Storage<T, ?> actual) {
+        assertThat(actual.getAll())
+                .usingRecursiveFieldByFieldElementComparator()
+                .containsExactlyInAnyOrderElementsOf(expected.getAll());
+    }
+
+    private static <T, K> void store(MemStorageSnapshot snapshot, Storage<T, K> storage, Path directory) {
+        snapshot.store(storage.getType(), storage, directory);
     }
 
 
     @Test
-    void storeThenLoad_fromDirectory_restoresAllEntities() {
-        MemStorage original = filledStorage();
-        var snapshot = new MemStorageSnapshot(new SnapshotOptions.FromDirectory(tempDir));
-        snapshot.store(original, tempDir);
-
-        MemStorage loaded = snapshot.load();
-
-        assertSameItems(original, loaded, TraineeEntity.class);
-        assertSameItems(original, loaded, TrainerEntity.class);
-        assertSameItems(original, loaded, TrainingEntity.class);
-    }
-
-    @Test
-    void load_thenAddItem_assignsIdAboveLoaded() {
-        var snapshot = new MemStorageSnapshot(new SnapshotOptions.FromDirectory(tempDir));
-        snapshot.store(filledStorage(), tempDir);
-        MemStorage loaded = snapshot.load();
-
-        TraineeEntity added = loaded.addItem(TraineeEntity.class, new TraineeEntity(null,
-                new UserData("Jack", "Brown", "Jack_Brown", "pass", true), LocalDate.of(2000, 1, 1)));
-
-        assertEquals(2L, added.id());
+    void constructor_blankOrNullLocation_throwsIllegalArgument() {
+        assertThrows(IllegalArgumentException.class, () -> new MemStorageSnapshot(" "));
+        assertThrows(IllegalArgumentException.class, () -> new MemStorageSnapshot(null));
     }
 
 
     @Test
-    void load_fromResources_restoresEntities() {
-        var snapshot = new MemStorageSnapshot(new SnapshotOptions.FromResources("snapshot-fixture"));
-        MemStorage loaded = snapshot.load();
+    void loadInto_fromResources_restoresEntitiesOfEachType() {
+        var snapshot = new MemStorageSnapshot(FILLED);
+        Storages loaded = Storages.empty();
 
-        assertEquals(Set.of(new TraineeEntity(5L,
-                        new UserData("Mia", "Wong", "Mia_Wong_1", "fixturePass", true),
-                        LocalDate.of(1995, 3, 2))),
-                Set.copyOf(loaded.getAllItems(TraineeEntity.class)));
+        loaded.all().forEach(snapshot::loadInto);
 
-        // The fixture has no files for these types: empty, not an error.
-        assertTrue(loaded.getAllItems(TrainerEntity.class).isEmpty());
-        assertTrue(loaded.getAllItems(TrainingEntity.class).isEmpty());
+        Storages expected = Storages.filled();
+        assertSameItems(expected.users(), loaded.users());
+        assertSameItems(expected.trainees(), loaded.trainees());
+        assertSameItems(expected.trainers(), loaded.trainers());
+        assertSameItems(expected.trainings(), loaded.trainings());
     }
 
     @Test
-    void load_none_returnsEmptyStorage() {
-        var snapshot = new MemStorageSnapshot(new SnapshotOptions.FromEmptyStorage());
-        MemStorage loaded = snapshot.load();
+    void loadInto_noFileForType_leavesStorageEmpty() {
+        var trainers = Storages.empty().trainers();
 
-        assertTrue(loaded.getAllItems(TraineeEntity.class).isEmpty());
+        new MemStorageSnapshot(INVALID).loadInto(trainers);
+
+        assertTrue(trainers.getAll().isEmpty());
     }
 
     @Test
-    void load_emptyDirectory_returnsEmptyStorage() {
-        var snapshot = new MemStorageSnapshot(new SnapshotOptions.FromDirectory(tempDir));
-        MemStorage loaded = snapshot.load();
+    void loadInto_invalidJson_throwsIllegalState() {
+        var snapshot = new MemStorageSnapshot(INVALID);
+        var trainees = Storages.empty().trainees();
 
-        assertTrue(loaded.getAllItems(TraineeEntity.class).isEmpty());
+        assertThrows(IllegalStateException.class, () -> snapshot.loadInto(trainees));
     }
 
     @Test
-    void load_invalidJson_throwsIllegalState() throws Exception {
-        Files.writeString(tempDir.resolve("gym.data.entities.TraineeEntity.json"), "{ not json");
+    void loadInto_nullTarget_throwsIllegalArgument() {
+        var snapshot = new MemStorageSnapshot(FILLED);
 
-        var snapshot = new MemStorageSnapshot(new SnapshotOptions.FromDirectory(tempDir));
+        assertThrows(IllegalArgumentException.class, () -> snapshot.loadInto(null));
+    }
 
-        assertThrows(IllegalStateException.class, snapshot::load);
+
+    @Test
+    void store_filledStorages_matchesFixture(@TempDir Path tempDir) throws IOException {
+        var snapshot = new MemStorageSnapshot(FILLED);
+
+        Storages.filled().all().forEach(storage -> store(snapshot, storage, tempDir));
+
+        var mapper = JsonMapper.builder().build();
+        for (var type : List.of(UserEntity.class, TraineeEntity.class, TrainerEntity.class, TrainingEntity.class)) {
+            String fileName = type.getName() + ".json";
+            String resource = FILLED + "/" + fileName;
+
+            try (var expected = getClass().getClassLoader().getResourceAsStream(resource);
+                 var actual = Files.newInputStream(tempDir.resolve(fileName))) {
+                assertNotNull(expected, "Missing snapshot fixture: " + resource);
+                assertEquals(mapper.readTree(expected), mapper.readTree(actual), fileName);
+            }
+        }
     }
 }

@@ -1,83 +1,85 @@
 package gym;
 
 import gym.configuration.AppConfig;
-import gym.data.storage.exceptions.ItemAlreadyExistsException;
-import gym.data.storage.exceptions.ItemNotFoundException;
-import gym.services.GymFacade;
-import gym.services.dto.enums.TrainingType;
-import gym.services.dto.requests.CreateTrainee;
-import gym.services.dto.requests.CreateTrainer;
-import gym.services.dto.requests.ScheduleTraining;
-import gym.services.dto.requests.UpdateTrainee;
-import gym.services.dto.requests.UpdateTrainer;
-import gym.services.exceptions.CannotScheduleTrainingException;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+import gym.data.storage.exception.ItemAlreadyExistsException;
+import gym.data.storage.exception.ItemNotFoundException;
+import gym.dto.enums.TrainingType;
+import gym.dto.request.CreateTrainee;
+import gym.dto.request.CreateTrainer;
+import gym.dto.request.ScheduleTraining;
+import gym.dto.request.UpdateTrainee;
+import gym.dto.request.UpdateTrainer;
+import gym.service.TraineeService;
+import gym.service.TrainerService;
+import gym.service.TrainingService;
+import gym.service.exception.CannotScheduleTrainingException;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.context.annotation.AnnotationConfigApplicationContext;
 
 import java.time.Duration;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 
+@Slf4j
 public class Program {
-    private static final Logger log = LoggerFactory.getLogger(Program.class);
 
     // IDs from the preloaded snapshot in src/main/resources/snapshot.
-    private static final long TRAINER_MARK_BROWN_ID = 2;
+    private static final long TRAINER_MARK_BROWN_ID = 6;
     private static final long TRAINEE_JOHN_SMITH_ID = 1;
     private static final long TRAINEE_MIA_WONG_ID = 3;
-    private static final long TRAINEE_KATE_GREEN_ID = 4;
 
-    static void main(String[] args){
+    public static void main(String[] args){
         try(var context = new AnnotationConfigApplicationContext(AppConfig.class)){
-            runUseCase(context.getBean(GymFacade.class));
+            runUseCase(
+                    context.getBean(TraineeService.class),
+                    context.getBean(TrainerService.class),
+                    context.getBean(TrainingService.class));
         }
     }
 
-    private static void runUseCase(GymFacade gym) {
+    private static void runUseCase(TraineeService traineeService, TrainerService trainerService, TrainingService trainingService) {
         try {
-            var trainee = gym.createTrainee(new CreateTrainee(
+            var trainee = traineeService.createTrainee(new CreateTrainee(
                     "Kate",
                     "Miller",
                     LocalDate.of(1998, 4, 12)));
             
-            var trainer = gym.createTrainer(new CreateTrainer(
+            var trainer = trainerService.createTrainer(new CreateTrainer(
                     "Tom",
                     "Reed",
-                    TrainingType.Fitness));
+                    TrainingType.FITNESS));
             
-            gym.scheduleTraining(new ScheduleTraining(
+            trainingService.scheduleTraining(new ScheduleTraining(
                     trainee.id(),
                     trainer.id(),
                     "Intro session",
                     LocalDateTime.of(2026, 12, 5, 18, 0), Duration.ofHours(1)));
 
-            gym.updateTrainer(new UpdateTrainer(
+            trainerService.updateTrainer(new UpdateTrainer(
                     TRAINER_MARK_BROWN_ID,
                     null,
                     null,
-                    TrainingType.Crossfit));
+                    TrainingType.CROSSFIT));
             
-            gym.updateTrainee(new UpdateTrainee(
+            traineeService.updateTrainee(new UpdateTrainee(
                     TRAINEE_JOHN_SMITH_ID,
                     null,
                     "Smithson", 
                     null));
 
-            gym.deactivateTraineeById(TRAINEE_KATE_GREEN_ID);
-            // Mia has two preloaded trainings, they're deleted together with her.
-            gym.deleteTraineeById(TRAINEE_MIA_WONG_ID);
 
-            gym.getAllTrainers().forEach(t -> log.info("Trainer: id={}, isActive={}, specialization={}", t.id(), t.isActive(), t.specialization()));
-            gym.getAllTrainees().forEach(t -> log.info("Trainee: id={}, isActive={}", t.id(), t.isActive()));
-            gym.getAllTrainings().forEach(t -> log.info("Training: id={}, traineeId={}, trainerId={}", t.id(), t.traineeId(), t.trainerId()));
+            traineeService.deleteTraineeById(TRAINEE_MIA_WONG_ID);
+
+            trainerService.getAll().forEach(t -> log.info("Trainer: id={}, specialization={}", t.id(), t.specialization()));
+            traineeService.getAll().forEach(t -> log.info("Trainee: id={}", t.id()));
+            trainingService.getAll().forEach(t -> log.info("Training: traineeId={}, trainerId={}", t.traineeId(), t.trainerId()));
             
         } catch (CannotScheduleTrainingException e) {
             log.error("Cannot schedule training: {}", e.getMessage(), e);
         } catch (ItemNotFoundException e) {
-            log.error("Item not found: {} with ID {}.", e.getType().getSimpleName(), e.getId(), e);
+            log.error("Item not found: {}", e.getMessage(), e);
         } catch (ItemAlreadyExistsException e) {
-            log.error("Item already exists: {} with ID {}.", e.getType().getSimpleName(), e.getId(), e);
+            log.error("Item already exists: {}", e.getMessage(), e);
         } catch (RuntimeException e) {
             log.error("Unexpected error.", e);
         }
