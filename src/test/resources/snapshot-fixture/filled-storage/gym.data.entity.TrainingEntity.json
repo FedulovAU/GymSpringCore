@@ -1,0 +1,10 @@
+[
+  {
+    "traineeId" : 5,
+    "trainerId" : 1,
+    "trainingName" : "Morning",
+    "trainingType" : 2,
+    "trainingDate" : "2026-12-01T10:00:00",
+    "trainingDuration" : "PT1H30M"
+  }
+]
