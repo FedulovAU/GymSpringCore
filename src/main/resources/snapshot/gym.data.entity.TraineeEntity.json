@@ -1,13 +1,45 @@
 [ {
   "id" : 1,
+  "user" : {
+    "firstName" : "John",
+    "lastName" : "Smith",
+    "userName" : "John_Smith",
+    "userNameSuffix" : 0,
+    "password" : "u1egUEoOeN",
+    "isActive" : true
+  },
   "birthDate" : "1990-05-17"
 }, {
   "id" : 2,
+  "user" : {
+    "firstName" : "John",
+    "lastName" : "Smith",
+    "userName" : "John_Smith_1",
+    "userNameSuffix" : 1,
+    "password" : "6ZvzFttA4A",
+    "isActive" : true
+  },
   "birthDate" : "1988-11-03"
 }, {
   "id" : 3,
+  "user" : {
+    "firstName" : "Mia",
+    "lastName" : "Wong",
+    "userName" : "Mia_Wong",
+    "userNameSuffix" : 0,
+    "password" : "IJqEpIXZHt",
+    "isActive" : true
+  },
   "birthDate" : "1995-03-02"
 }, {
   "id" : 4,
+  "user" : {
+    "firstName" : "Kate",
+    "lastName" : "Green",
+    "userName" : "Kate_Green",
+    "userNameSuffix" : 0,
+    "password" : "0AoHAs1VFO",
+    "isActive" : true
+  },
   "birthDate" : "2001-07-21"
 } ]

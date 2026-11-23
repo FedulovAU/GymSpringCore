@@ -22,7 +22,8 @@ import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.stream.Stream;
 
-import static org.junit.jupiter.api.Assertions.*;
+import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.params.provider.Arguments.arguments;
 
 @SpringJUnitConfig(RequestValidatorTest.Config.class)

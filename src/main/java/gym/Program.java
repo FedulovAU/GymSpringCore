@@ -24,7 +24,7 @@ import java.time.LocalDateTime;
 public class Program {
 
     // IDs from the preloaded snapshot in src/main/resources/snapshot.
-    private static final long TRAINER_MARK_BROWN_ID = 6;
+    private static final long TRAINER_MARK_BROWN_ID = 2;
     private static final long TRAINEE_JOHN_SMITH_ID = 1;
     private static final long TRAINEE_MIA_WONG_ID = 3;
 

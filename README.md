@@ -65,14 +65,15 @@ entity class:
 
 | File | Contents |
 |---|---|
-| `gym.data.entity.UserEntity.json` | Users: name, username, username suffix, password, active flag. |
-| `gym.data.entity.TraineeEntity.json` | Trainee fields only (`id`, `birthDate`). |
-| `gym.data.entity.TrainerEntity.json` | Trainer fields only (`id`, `specialization`). |
+| `gym.data.entity.TraineeEntity.json` | Trainees: `id`, `birthDate` and a nested `user`. |
+| `gym.data.entity.TrainerEntity.json` | Trainers: `id`, `specialization` and a nested `user`. |
 | `gym.data.entity.TrainingEntity.json` | Trainings, referencing a trainee and a trainer by ID. |
 
-- A trainee's or trainer's `id` is the `id` of its user, so trainees and trainers can't share IDs.
-- New users get the next ID after the highest loaded one. New usernames continue from the
-  highest loaded suffix for the same first and last name.
+- The nested `user` holds the name, username, username suffix, password and active flag.
+- Trainees and trainers have separate IDs, so a trainee and a trainer can have the same ID.
+  New ones get the next ID after the highest loaded one of their type.
+- New usernames continue from the highest loaded suffix for the same first and last name,
+  across both trainees and trainers.
 - A missing file means no items of that type.
 
 #### Logging

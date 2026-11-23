@@ -1,7 +1,8 @@
-package gym.repository;
+package gym.repository.trainee;
 
 import gym.data.entity.TraineeEntity;
-import gym.data.storage.Storage;
+import gym.data.storage.aggregated.AggregatedValueStorage;
+import gym.repository.UsernameKey;
 import org.springframework.stereotype.Repository;
 
 import java.util.List;
@@ -11,9 +12,9 @@ import java.util.function.UnaryOperator;
 @Repository
 public class TraineeRepository {
 
-    private final Storage<TraineeEntity, Long> storage;
+    private final AggregatedValueStorage<TraineeEntity, Long, UsernameKey, Long> storage;
 
-    public TraineeRepository(Storage<TraineeEntity, Long> storage){
+    public TraineeRepository(AggregatedValueStorage<TraineeEntity, Long, UsernameKey, Long> storage){
         this.storage = storage;
     }
 
@@ -35,5 +36,9 @@ public class TraineeRepository {
 
     public Optional<TraineeEntity> getById(long id){
         return storage.get(id);
+    }
+
+    public Optional<Long> getLastUsernameSuffix(String firstName, String lastName) {
+        return storage.getAggregatedValue(new UsernameKey(firstName, lastName));
     }
 }

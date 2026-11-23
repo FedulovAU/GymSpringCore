@@ -4,13 +4,13 @@ import gym.data.entity.TraineeEntity;
 import gym.data.entity.TrainerEntity;
 import gym.data.entity.TrainingEntity;
 import gym.data.entity.UserEntity;
-import gym.data.enums.TrainingType;
+import gym.data.entity.TrainingTypeEntity;
+import gym.dto.enums.TrainingType;
 import gym.dto.request.ScheduleTraining;
 import gym.dto.response.Training;
-import gym.repository.TraineeRepository;
-import gym.repository.TrainerRepository;
+import gym.repository.trainee.TraineeRepository;
+import gym.repository.trainer.TrainerRepository;
 import gym.repository.TrainingRepository;
-import gym.repository.user.UserRepository;
 import gym.service.exception.CannotScheduleTrainingException;
 import gym.service.mapper.GymMapper;
 import gym.service.validation.RequestValidator;
@@ -26,9 +26,11 @@ import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Optional;
 
-import static org.junit.jupiter.api.Assertions.*;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.AdditionalAnswers.returnsFirstArg;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.argThat;
 import static org.mockito.Mockito.*;
 
 @ExtendWith(MockitoExtension.class)
@@ -46,8 +48,6 @@ class TrainingServiceTest {
     private TrainerRepository trainerRepository;
     @Mock
     private TraineeRepository traineeRepository;
-    @Mock
-    private UserRepository userRepository;
 
     private TrainingService service;
 
@@ -59,15 +59,14 @@ class TrainingServiceTest {
         service.setTrainingRepository(trainingRepository);
         service.setTrainerRepository(trainerRepository);
         service.setTraineeRepository(traineeRepository);
-        service.setUserRepository(userRepository);
     }
 
-    private static UserEntity user(long id, boolean isActive) {
-        return new UserEntity(id, "Name", "Surname", "Name_Surname", 0L, "secret12345", isActive);
+    private static UserEntity user(boolean isActive) {
+        return new UserEntity("Name", "Surname", "Name_Surname", 0L, "secret12345", isActive);
     }
 
     private static TrainingEntity existingTraining(LocalDateTime start, Duration duration) {
-        return new TrainingEntity(TRAINEE_ID, TRAINER_ID, "Existing", TrainingType.CROSSFIT, start, duration);
+        return new TrainingEntity(TRAINEE_ID, TRAINER_ID, "Existing", TrainingTypeEntity.of(TrainingTypeEntity.TrainingType.CROSSFIT), start, duration);
     }
 
     private static ScheduleTraining request(LocalDateTime start, Duration duration) {
@@ -75,18 +74,26 @@ class TrainingServiceTest {
     }
 
     private void stubTrainer(boolean isActive) {
-        when(trainerRepository.getById(TRAINER_ID)).thenReturn(Optional.of(new TrainerEntity(TRAINER_ID, TrainingType.CROSSFIT)));
-        when(userRepository.getById(TRAINER_ID)).thenReturn(Optional.of(user(TRAINER_ID, isActive)));
+        when(trainerRepository.getById(TRAINER_ID))
+                .thenReturn(Optional.of(new TrainerEntity(TRAINER_ID, user(isActive), TrainingTypeEntity.of(TrainingTypeEntity.TrainingType.CROSSFIT))));
     }
 
     private void stubTrainee(boolean isActive) {
-        when(traineeRepository.getById(TRAINEE_ID)).thenReturn(Optional.of(new TraineeEntity(TRAINEE_ID, LocalDate.of(1990, 5, 17))));
-        when(userRepository.getById(TRAINEE_ID)).thenReturn(Optional.of(user(TRAINEE_ID, isActive)));
+        when(traineeRepository.getById(TRAINEE_ID))
+                .thenReturn(Optional.of(new TraineeEntity(TRAINEE_ID, user(isActive), LocalDate.of(1990, 5, 17))));
     }
 
     private void stubActiveTrainerAndTrainee() {
         stubTrainer(true);
         stubTrainee(true);
+    }
+
+    private void verifyTrainerLoaded() {
+        verify(trainerRepository).getById(TRAINER_ID);
+    }
+
+    private void verifyTraineeLoaded() {
+        verify(traineeRepository).getById(TRAINEE_ID);
     }
 
 
@@ -99,13 +106,17 @@ class TrainingServiceTest {
 
         Training result = service.scheduleTraining(request(START, ONE_HOUR));
 
+        verifyTrainerLoaded();
+        verifyTraineeLoaded();
+        verify(trainingRepository).getByTrainerId(TRAINER_ID);
+        verify(trainingRepository).getByTraineeId(TRAINEE_ID);
         verify(trainingRepository).add(argThat(t ->
                 t.getTraineeId() == TRAINEE_ID
                 && t.getTrainerId() == TRAINER_ID
-                && t.getTrainingType() == TrainingType.CROSSFIT
+                && t.getTrainingType().getTrainingType() == TrainingTypeEntity.TrainingType.CROSSFIT
                 && t.getTrainingDate().equals(START)));
         assertEquals(new Training(TRAINEE_ID, TRAINER_ID, "Morning",
-                gym.dto.enums.TrainingType.CROSSFIT, START, ONE_HOUR), result);
+                TrainingType.CROSSFIT, START, ONE_HOUR), result);
     }
 
     @Test
@@ -113,7 +124,7 @@ class TrainingServiceTest {
         assertThrows(IllegalArgumentException.class,
                 () -> service.scheduleTraining(request(LocalDateTime.now().minusDays(1), ONE_HOUR)));
 
-        verifyNoInteractions(trainingRepository, trainerRepository, traineeRepository, userRepository);
+        verifyNoInteractions(trainingRepository, trainerRepository, traineeRepository);
     }
 
     @Test
@@ -123,18 +134,8 @@ class TrainingServiceTest {
         assertThrows(CannotScheduleTrainingException.class,
                 () -> service.scheduleTraining(request(START, ONE_HOUR)));
 
+        verifyTrainerLoaded();
         verifyNoInteractions(trainingRepository, traineeRepository);
-    }
-
-    @Test
-    void scheduleTraining_trainerWithoutUser_throwsCannotScheduleTraining() {
-        when(trainerRepository.getById(TRAINER_ID)).thenReturn(Optional.of(new TrainerEntity(TRAINER_ID, TrainingType.CROSSFIT)));
-        when(userRepository.getById(TRAINER_ID)).thenReturn(Optional.empty());
-
-        assertThrows(CannotScheduleTrainingException.class,
-                () -> service.scheduleTraining(request(START, ONE_HOUR)));
-
-        verifyNoInteractions(trainingRepository);
     }
 
     @Test
@@ -145,6 +146,8 @@ class TrainingServiceTest {
         assertThrows(CannotScheduleTrainingException.class,
                 () -> service.scheduleTraining(request(START, ONE_HOUR)));
 
+        verifyTrainerLoaded();
+        verifyTraineeLoaded();
         verifyNoInteractions(trainingRepository);
     }
 
@@ -156,6 +159,8 @@ class TrainingServiceTest {
         assertThrows(CannotScheduleTrainingException.class,
                 () -> service.scheduleTraining(request(START, ONE_HOUR)));
 
+        verifyTrainerLoaded();
+        verify(traineeRepository).getById(TRAINEE_ID);
         verifyNoInteractions(trainingRepository);
     }
 
@@ -169,6 +174,9 @@ class TrainingServiceTest {
         assertThrows(CannotScheduleTrainingException.class,
                 () -> service.scheduleTraining(request(START, ONE_HOUR)));
 
+        verifyTrainerLoaded();
+        verifyTraineeLoaded();
+        verify(trainingRepository).getByTrainerId(TRAINER_ID);
         verify(trainingRepository, never()).add(any());
     }
 
@@ -183,6 +191,10 @@ class TrainingServiceTest {
         assertThrows(CannotScheduleTrainingException.class,
                 () -> service.scheduleTraining(request(START, ONE_HOUR)));
 
+        verifyTrainerLoaded();
+        verifyTraineeLoaded();
+        verify(trainingRepository).getByTrainerId(TRAINER_ID);
+        verify(trainingRepository).getByTraineeId(TRAINEE_ID);
         verify(trainingRepository, never()).add(any());
     }
 
@@ -197,6 +209,10 @@ class TrainingServiceTest {
 
         service.scheduleTraining(request(START, ONE_HOUR));
 
+        verifyTrainerLoaded();
+        verifyTraineeLoaded();
+        verify(trainingRepository).getByTrainerId(TRAINER_ID);
+        verify(trainingRepository).getByTraineeId(TRAINEE_ID);
         verify(trainingRepository).add(argThat(t -> t.getTrainingDate().equals(START)));
     }
 
@@ -211,8 +227,9 @@ class TrainingServiceTest {
         List<Training> result = service.getAll();
 
         assertEquals(List.of(
-                new Training(TRAINEE_ID, TRAINER_ID, "Existing", gym.dto.enums.TrainingType.CROSSFIT, START, ONE_HOUR),
-                new Training(TRAINEE_ID, TRAINER_ID, "Existing", gym.dto.enums.TrainingType.CROSSFIT, tomorrow, ONE_HOUR)),
+                new Training(TRAINEE_ID, TRAINER_ID, "Existing", TrainingType.CROSSFIT, START, ONE_HOUR),
+                new Training(TRAINEE_ID, TRAINER_ID, "Existing", TrainingType.CROSSFIT, tomorrow, ONE_HOUR)),
                 result);
+        verify(trainingRepository).getAll();
     }
 }

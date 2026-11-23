@@ -8,7 +8,6 @@ import lombok.With;
 @Getter
 @With
 public class UserEntity {
-    private final Long id;
     private final String firstName;
     private final String lastName;
     private final String userName;
@@ -18,14 +17,12 @@ public class UserEntity {
 
     @JsonCreator
     public UserEntity(
-            @JsonProperty("id") Long id,
             @JsonProperty("firstName") String firstName,
             @JsonProperty("lastName") String lastName,
             @JsonProperty("userName") String userName,
             @JsonProperty("userNameSuffix") Long userNameSuffix,
             @JsonProperty("password") String password,
             @JsonProperty("isActive") boolean isActive) {
-        this.id = id;
         this.firstName = firstName;
         this.lastName = lastName;
         this.userName = userName;

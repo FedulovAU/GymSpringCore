@@ -4,7 +4,8 @@ import gym.data.entity.TraineeEntity;
 import gym.data.entity.TrainerEntity;
 import gym.data.entity.TrainingEntity;
 import gym.data.entity.UserEntity;
-import gym.data.enums.TrainingType;
+import gym.data.entity.TrainingTypeEntity;
+import gym.dto.enums.TrainingType;
 import gym.dto.request.CreateTrainee;
 import gym.dto.request.CreateTrainer;
 import gym.dto.request.ScheduleTraining;
@@ -13,40 +14,25 @@ import gym.dto.request.UpdateTrainer;
 import gym.dto.response.Trainee;
 import gym.dto.response.Trainer;
 import gym.dto.response.Training;
+import gym.service.helper.UsernameGenerator;
 import org.springframework.stereotype.Component;
 
 
 @Component
 public final class GymMapper {
 
-    public UserEntity toUserEntity(CreateTrainee request, String password) {
-        return new UserEntity(
+    public TraineeEntity toTraineeEntity(CreateTrainee request,  String username, long suffix, String password) {
+        return new TraineeEntity(
                 null,
-                request.firstName(),
-                request.lastName(),
-                null,
-                null,
-                password,
-                true);
+                toUserEntity(request.firstName(), request.lastName(), username, suffix, password),
+                request.birthDate());
     }
 
-    public UserEntity toUserEntity(CreateTrainer request, String password) {
-        return new UserEntity(
+    public TrainerEntity toTrainerEntity(CreateTrainer request, String username, long suffix, String password) {
+        return new TrainerEntity(
                 null,
-                request.firstName(),
-                request.lastName(),
-                null,
-                null,
-                password,
-                true);
-    }
-
-    public TraineeEntity toTraineeEntity(CreateTrainee request, UserEntity userEntity) {
-        return new TraineeEntity(userEntity.getId(), request.birthDate());
-    }
-
-    public TrainerEntity toTrainerEntity(CreateTrainer request, UserEntity userEntity) {
-        return new TrainerEntity(userEntity.getId(), toTrainingType(request.specialization()));
+                toUserEntity(request.firstName(), request.lastName(), username, suffix, password),
+                toTrainingType(request.specialization()));
     }
 
     public TrainingEntity toTrainingEntity(
@@ -64,53 +50,43 @@ public final class GymMapper {
         if (request.birthDate() != null) {
             traineeEntity = traineeEntity.withBirthDate(request.birthDate());
         }
-        return traineeEntity;
+        return traineeEntity.withUser(toUpdatedUser(request.firstName(), request.lastName(), traineeEntity.getUser()));
     }
-
-    public UserEntity toUpdatedUser(UpdateTrainee request, UserEntity userEntity) {
-        if (request.firstName() != null) {
-            userEntity = userEntity.withFirstName(request.firstName());
-        }
-        if (request.lastName() != null) {
-            userEntity = userEntity.withLastName(request.lastName());
-        }
-        return userEntity;
-    }
-
-    public UserEntity toUpdatedUser(UpdateTrainer request, UserEntity userEntity) {
-        if (request.firstName() != null) {
-            userEntity = userEntity.withFirstName(request.firstName());
-        }
-        if (request.lastName() != null) {
-            userEntity = userEntity.withLastName(request.lastName());
-        }
-        return userEntity;
-    }
-
-
 
     public TrainerEntity toUpdatedTrainer(UpdateTrainer request, TrainerEntity trainerEntity) {
         if (request.specialization() != null) {
             trainerEntity = trainerEntity.withSpecialization(toTrainingType(request.specialization()));
         }
-        return trainerEntity;
+        return trainerEntity.withUser(toUpdatedUser(request.firstName(), request.lastName(), trainerEntity.getUser()));
     }
 
-    public Trainee toTrainee(TraineeEntity trainee, UserEntity userEntity) {
+    private static UserEntity toUpdatedUser(String firstName, String lastName, UserEntity userEntity) {
+        if (firstName != null) {
+            userEntity = userEntity.withFirstName(firstName);
+        }
+        if (lastName != null) {
+            userEntity = userEntity.withLastName(lastName);
+        }
+        return userEntity;
+    }
+
+    public Trainee toTrainee(TraineeEntity trainee) {
+        var user = trainee.getUser();
         return new Trainee(
                 trainee.getId(),
-                userEntity.getFirstName(),
-                userEntity.getLastName(),
-                userEntity.getUserName(),
+                user.getFirstName(),
+                user.getLastName(),
+                user.getUserName(),
                 trainee.getBirthDate());
     }
 
-    public Trainer toTrainer(TrainerEntity trainer, UserEntity userEntity) {
+    public Trainer toTrainer(TrainerEntity trainer) {
+        var user = trainer.getUser();
         return new Trainer(
                 trainer.getId(),
-                userEntity.getFirstName(),
-                userEntity.getLastName(),
-                userEntity.getUserName(),
+                user.getFirstName(),
+                user.getLastName(),
+                user.getUserName(),
                 toTrainingType(trainer.getSpecialization()));
     }
 
@@ -124,25 +100,29 @@ public final class GymMapper {
                 training.getTrainingDuration());
     }
 
-    public TrainingType toTrainingType(gym.dto.enums.TrainingType trainingType) {
+    public TrainingTypeEntity toTrainingType(TrainingType trainingType) {
         if (trainingType == null) {
             return null;
         }
-        return switch (trainingType) {
-            case gym.dto.enums.TrainingType.BODY_BUILDING -> TrainingType.BODY_BUILDING;
-            case gym.dto.enums.TrainingType.CROSSFIT -> TrainingType.CROSSFIT;
-            case gym.dto.enums.TrainingType.FITNESS -> TrainingType.FITNESS;
-        };
+        return TrainingTypeEntity.of(switch (trainingType) {
+            case BODY_BUILDING -> TrainingTypeEntity.TrainingType.BODY_BUILDING;
+            case CROSSFIT -> TrainingTypeEntity.TrainingType.CROSSFIT;
+            case FITNESS -> TrainingTypeEntity.TrainingType.FITNESS;
+        });
     }
 
-    public gym.dto.enums.TrainingType toTrainingType(TrainingType trainingTypeEntity) {
+    public TrainingType toTrainingType(TrainingTypeEntity trainingTypeEntity) {
         if (trainingTypeEntity == null) {
             return null;
         }
-        return switch (trainingTypeEntity) {
-            case BODY_BUILDING -> gym.dto.enums.TrainingType.BODY_BUILDING;
-            case CROSSFIT -> gym.dto.enums.TrainingType.CROSSFIT;
-            case FITNESS -> gym.dto.enums.TrainingType.FITNESS;
+        return switch (trainingTypeEntity.getTrainingType()) {
+            case BODY_BUILDING -> TrainingType.BODY_BUILDING;
+            case CROSSFIT -> TrainingType.CROSSFIT;
+            case FITNESS -> TrainingType.FITNESS;
         };
+    }
+
+    private UserEntity toUserEntity(String firstName, String lastName, String username, long suffix, String password) {
+        return new UserEntity(firstName, lastName, username, suffix, password, true);
     }
 }

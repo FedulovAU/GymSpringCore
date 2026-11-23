@@ -7,6 +7,8 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
+import java.util.Optional;
+
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.AdditionalAnswers.returnsFirstArg;
 import static org.mockito.ArgumentMatchers.any;
@@ -27,12 +29,6 @@ class AggregatedValueStorageTest {
         public Long getValue(Item entity) {
             return entity.suffix();
         }
-
-        @Override
-        public Item mergeOnAdd(Item entity, Long existedValue) {
-            long suffix = existedValue == null ? 0L : existedValue + 1;
-            return new Item(entity.id(), entity.name(), suffix);
-        }
     };
 
     @Mock
@@ -47,45 +43,39 @@ class AggregatedValueStorageTest {
 
 
     @Test
-    void add_sameAggregateKeyGetsNextValue_otherAggregateKeyStartsOver() {
+    void add_storesItemAndRecordsItsValueForItsAggregateKeyOnly() {
         when(innerStorage.add(any())).then(returnsFirstArg());
 
-        assertEquals(0L, storage.add(new Item(null, "a", null)).suffix());
-        assertEquals(1L, storage.add(new Item(null, "a", null)).suffix());
-        assertEquals(0L, storage.add(new Item(null, "b", null)).suffix());
+        var item = new Item(null, "a", 0L);
+        assertSame(item, storage.add(item));
+        storage.add(new Item(null, "a", 1L));
 
-        verify(innerStorage).add(new Item(null, "a", 0L));
+        assertEquals(Optional.of(1L), storage.getAggregatedValue("a"));
+        assertEquals(Optional.empty(), storage.getAggregatedValue("b"));
+        verify(innerStorage).add(item);
         verify(innerStorage).add(new Item(null, "a", 1L));
-        verify(innerStorage).add(new Item(null, "b", 0L));
         verifyNoMoreInteractions(innerStorage);
     }
 
     @Test
-    void put_thenAdd_continuesAfterHighestPutValue() {
-        when(innerStorage.add(any())).then(returnsFirstArg());
-
+    void put_keepsHighestValue() {
         storage.put(new Item(1L, "a", 5L));
         storage.put(new Item(2L, "a", 2L));
-        Item added = storage.add(new Item(null, "a", null));
 
-        assertEquals(6L, added.suffix());
+        assertEquals(Optional.of(5L), storage.getAggregatedValue("a"));
         verify(innerStorage).put(new Item(1L, "a", 5L));
         verify(innerStorage).put(new Item(2L, "a", 2L));
-        verify(innerStorage).add(new Item(null, "a", 6L));
         verifyNoMoreInteractions(innerStorage);
     }
 
     @Test
-    void add_innerStorageThrows_valueNotAdvanced() {
-        when(innerStorage.add(any()))
-                .thenThrow(new IllegalStateException("rejected"))
-                .then(returnsFirstArg());
+    void add_innerStorageThrows_valueNotRecorded() {
+        when(innerStorage.add(any())).thenThrow(new IllegalStateException("rejected"));
 
-        assertThrows(IllegalStateException.class, () -> storage.add(new Item(null, "a", null)));
-        Item added = storage.add(new Item(null, "a", null));
+        assertThrows(IllegalStateException.class, () -> storage.add(new Item(null, "a", 0L)));
 
-        assertEquals(0L, added.suffix());
-        verify(innerStorage, times(2)).add(new Item(null, "a", 0L));
+        assertEquals(Optional.empty(), storage.getAggregatedValue("a"));
+        verify(innerStorage).add(new Item(null, "a", 0L));
         verifyNoMoreInteractions(innerStorage);
     }
 }

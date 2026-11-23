@@ -3,14 +3,12 @@ package gym.service;
 import gym.data.entity.TraineeEntity;
 import gym.data.entity.TrainerEntity;
 import gym.data.entity.TrainingEntity;
-import gym.data.entity.UserEntity;
 import gym.dto.request.ScheduleTraining;
 import gym.service.validation.RequestValidator;
 import gym.dto.response.Training;
-import gym.repository.TraineeRepository;
-import gym.repository.TrainerRepository;
+import gym.repository.trainee.TraineeRepository;
+import gym.repository.trainer.TrainerRepository;
 import gym.repository.TrainingRepository;
-import gym.repository.user.UserRepository;
 import gym.service.exception.CannotScheduleTrainingException;
 import gym.service.mapper.GymMapper;
 import lombok.extern.slf4j.Slf4j;
@@ -28,7 +26,6 @@ public class TrainingService {
     private TrainingRepository trainingRepository;
     private TrainerRepository trainerRepository;
     private TraineeRepository traineeRepository;
-    private UserRepository userRepository;
     private GymMapper gymMapper;
     private RequestValidator requestValidator;
 
@@ -50,11 +47,6 @@ public class TrainingService {
     @Autowired
     public void setTrainerRepository(TrainerRepository trainerRepository) {
         this.trainerRepository = trainerRepository;
-    }
-
-    @Autowired
-    public void setUserRepository(UserRepository userRepository) {
-        this.userRepository = userRepository;
     }
 
     @Autowired
@@ -88,7 +80,7 @@ public class TrainingService {
     private TrainerEntity findActiveTrainerById(long id) {
         TrainerEntity trainer = trainerRepository.getById(id)
                 .orElseThrow(() -> new CannotScheduleTrainingException("Trainer with ID " + id + " does not exist."));
-        if (!isUserActive(id)) {
+        if (!trainer.getUser().isActive()) {
             throw new CannotScheduleTrainingException("Trainer with ID " + id + " is not active.");
         }
         return trainer;
@@ -97,15 +89,10 @@ public class TrainingService {
     private TraineeEntity findActiveTraineeById(long id) {
         TraineeEntity trainee = traineeRepository.getById(id)
                 .orElseThrow(() -> new CannotScheduleTrainingException("Trainee with ID " + id + " does not exist."));
-        if (!isUserActive(id)) {
+        if (!trainee.getUser().isActive()) {
             throw new CannotScheduleTrainingException("Trainee with ID " + id + " is not active.");
         }
         return trainee;
-    }
-
-
-    private boolean isUserActive(long id) {
-        return userRepository.getById(id).map(UserEntity::isActive).orElse(false);
     }
 
     private static void ensureNoOverlap(List<TrainingEntity> existing, ScheduleTraining request, String who) {

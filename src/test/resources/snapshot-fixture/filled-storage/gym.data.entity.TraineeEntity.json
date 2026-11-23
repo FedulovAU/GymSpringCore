@@ -1,6 +1,14 @@
 [
   {
     "id" : 5,
+    "user" : {
+      "firstName" : "Mia",
+      "lastName" : "Wong",
+      "userName" : "Mia_Wong_1",
+      "userNameSuffix" : 1,
+      "password" : "fixturePass",
+      "isActive" : true
+    },
     "birthDate" : "1995-03-02"
   }
 ]

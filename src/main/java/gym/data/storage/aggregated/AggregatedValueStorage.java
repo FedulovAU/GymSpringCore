@@ -35,9 +35,8 @@ public class AggregatedValueStorage<TEntity, TKey, TAggregateKey, TAggregateValu
         aggregatedItems.compute(
                 aggregateRule.aggregateBy(item),
                 (key, currentValue) -> {
-                    var updatedItem = aggregateRule.mergeOnAdd(item, currentValue);
-                    addedItem.set(innerStorage.add(updatedItem));
-                    return aggregateRule.getValue(updatedItem);
+                    addedItem.set(innerStorage.add(item));
+                    return aggregateRule.getValue(item);
                 });
 
         return addedItem.get();
@@ -80,4 +79,7 @@ public class AggregatedValueStorage<TEntity, TKey, TAggregateKey, TAggregateValu
                 });
     }
 
+    public Optional<TAggregateValue> getAggregatedValue(TAggregateKey key) {
+        return Optional.ofNullable(aggregatedItems.get(key));
+    }
 }

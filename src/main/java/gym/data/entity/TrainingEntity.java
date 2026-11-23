@@ -2,7 +2,6 @@ package gym.data.entity;
 
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
-import gym.data.enums.TrainingType;
 import lombok.Getter;
 import lombok.With;
 
@@ -15,7 +14,7 @@ public class TrainingEntity {
     private final Long traineeId;
     private final Long trainerId;
     private final String trainingName;
-    private final TrainingType trainingType;
+    private final TrainingTypeEntity trainingType;
     private final LocalDateTime trainingDate;
     private final Duration trainingDuration;
 
@@ -24,7 +23,7 @@ public class TrainingEntity {
             @JsonProperty("traineeId") Long traineeId,
             @JsonProperty("trainerId") Long trainerId,
             @JsonProperty("trainingName") String trainingName,
-            @JsonProperty("trainingType") TrainingType trainingType,
+            @JsonProperty("trainingType") TrainingTypeEntity trainingType,
             @JsonProperty("trainingDate") LocalDateTime trainingDate,
             @JsonProperty("trainingDuration") Duration trainingDuration) {
         this.traineeId = traineeId;
