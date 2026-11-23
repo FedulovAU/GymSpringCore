@@ -1,0 +1,43 @@
+[ {
+  "id" : 1,
+  "user" : {
+    "firstName" : "Anna",
+    "lastName" : "Lee",
+    "userName" : "Anna_Lee",
+    "userNameSuffix" : 0,
+    "password" : "afJVUpZxuZ",
+    "isActive" : true
+  },
+  "specialization" : {
+    "id" : 2,
+    "trainingType" : "CROSSFIT"
+  }
+}, {
+  "id" : 2,
+  "user" : {
+    "firstName" : "Mark",
+    "lastName" : "Brown",
+    "userName" : "Mark_Brown",
+    "userNameSuffix" : 0,
+    "password" : "HHKpfAZCmb",
+    "isActive" : true
+  },
+  "specialization" : {
+    "id" : 1,
+    "trainingType" : "BODY_BUILDING"
+  }
+}, {
+  "id" : 3,
+  "user" : {
+    "firstName" : "Sara",
+    "lastName" : "Connor",
+    "userName" : "Sara_Connor",
+    "userNameSuffix" : 0,
+    "password" : "Jb0k5nOSLQ",
+    "isActive" : true
+  },
+  "specialization" : {
+    "id" : 3,
+    "trainingType" : "FITNESS"
+  }
+} ]

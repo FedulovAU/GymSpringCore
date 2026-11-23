@@ -1,0 +1,61 @@
+[ {
+  "traineeId" : 1,
+  "trainerId" : 1,
+  "trainingName" : "Morning WOD",
+  "trainingType" : {
+    "id" : 2,
+    "trainingType" : "CROSSFIT"
+  },
+  "trainingDate" : "2026-12-01T09:00:00",
+  "trainingDuration" : "PT1H"
+}, {
+  "traineeId" : 3,
+  "trainerId" : 1,
+  "trainingName" : "Midday WOD",
+  "trainingType" : {
+    "id" : 2,
+    "trainingType" : "CROSSFIT"
+  },
+  "trainingDate" : "2026-12-01T12:00:00",
+  "trainingDuration" : "PT1H"
+}, {
+  "traineeId" : 2,
+  "trainerId" : 2,
+  "trainingName" : "Leg day",
+  "trainingType" : {
+    "id" : 1,
+    "trainingType" : "BODY_BUILDING"
+  },
+  "trainingDate" : "2026-12-01T09:00:00",
+  "trainingDuration" : "PT1H30M"
+}, {
+  "traineeId" : 1,
+  "trainerId" : 2,
+  "trainingName" : "Upper body",
+  "trainingType" : {
+    "id" : 1,
+    "trainingType" : "BODY_BUILDING"
+  },
+  "trainingDate" : "2026-12-02T09:00:00",
+  "trainingDuration" : "PT1H30M"
+}, {
+  "traineeId" : 4,
+  "trainerId" : 3,
+  "trainingName" : "Cardio",
+  "trainingType" : {
+    "id" : 3,
+    "trainingType" : "FITNESS"
+  },
+  "trainingDate" : "2026-12-01T10:00:00",
+  "trainingDuration" : "PT1H"
+}, {
+  "traineeId" : 3,
+  "trainerId" : 3,
+  "trainingName" : "Stretching",
+  "trainingType" : {
+    "id" : 3,
+    "trainingType" : "FITNESS"
+  },
+  "trainingDate" : "2026-12-03T09:00:00",
+  "trainingDuration" : "PT1H"
+} ]

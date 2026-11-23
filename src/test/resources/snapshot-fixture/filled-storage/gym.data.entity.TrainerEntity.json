@@ -1,0 +1,17 @@
+[
+  {
+    "id" : 1,
+    "user" : {
+      "firstName" : "Anna",
+      "lastName" : "Lee",
+      "userName" : "Anna_Lee",
+      "userNameSuffix" : 0,
+      "password" : "secret67890",
+      "isActive" : false
+    },
+    "specialization" : {
+      "id" : 2,
+      "trainingType" : "CROSSFIT"
+    }
+  }
+]
