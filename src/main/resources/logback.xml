@@ -18,6 +18,7 @@
 
     <!-- Keep Spring's startup messages quiet. -->
     <logger name="org.springframework" level="WARN"/>
+    <logger name="org.hibernate.SQL" level="DEBUG"/>
 
     <root level="INFO">
         <appender-ref ref="CONSOLE"/>

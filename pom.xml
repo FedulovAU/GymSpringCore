@@ -24,6 +24,9 @@
         <!-- Mockito 5.24.0 ships Byte Buddy 1.17.7, which doesn't support Java 27 class files.
              1.18.15+ supports up to Java 28, so we override it below. -->
         <bytebuddy.version>1.18.17</bytebuddy.version>
+        <spring.version>7.0.11</spring.version>
+        <hibernate.version>7.4.17.Final</hibernate.version>
+        <postgresql.version>42.7.15</postgresql.version>
     </properties>
 
     <dependencyManagement>
@@ -53,7 +56,23 @@
         <dependency>
             <groupId>org.springframework</groupId>
             <artifactId>spring-context</artifactId>
-            <version>7.0.10</version>
+            <version>${spring.version}</version>
+        </dependency>
+        <dependency>
+            <groupId>org.springframework</groupId>
+            <artifactId>spring-orm</artifactId>
+            <version>${spring.version}</version>
+        </dependency>
+        <dependency>
+            <groupId>org.hibernate.orm</groupId>
+            <artifactId>hibernate-core</artifactId>
+            <version>${hibernate.version}</version>
+        </dependency>
+        <dependency>
+            <groupId>org.postgresql</groupId>
+            <artifactId>postgresql</artifactId>
+            <version>${postgresql.version}</version>
+            <scope>runtime</scope>
         </dependency>
 
         <!-- JSON (de)serialization for storage snapshots. Jackson 3 supports records and java.time out of the box. -->
@@ -110,7 +129,7 @@
         <dependency>
             <groupId>org.springframework</groupId>
             <artifactId>spring-test</artifactId>
-            <version>7.0.10</version>
+            <version>${spring.version}</version>
             <scope>test</scope>
         </dependency>
     </dependencies>
