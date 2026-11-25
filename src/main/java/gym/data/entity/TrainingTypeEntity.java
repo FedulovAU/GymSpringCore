@@ -1,30 +1,28 @@
 package gym.data.entity;
 
-import com.fasterxml.jackson.annotation.JsonCreator;
-import com.fasterxml.jackson.annotation.JsonProperty;
+import jakarta.persistence.Column;
+import jakarta.persistence.Entity;
+import jakarta.persistence.EnumType;
+import jakarta.persistence.Enumerated;
+import jakarta.persistence.Id;
+import jakarta.persistence.Table;
+import lombok.AccessLevel;
 import lombok.Getter;
+import lombok.NoArgsConstructor;
+import org.hibernate.annotations.Immutable;
 
+@Entity
+@Immutable
+@Table(name = "training_type")
+@NoArgsConstructor(access = AccessLevel.PROTECTED)
 @Getter
 public class TrainingTypeEntity {
-    private final Long id;
-    private final TrainingType trainingType;
+    @Id
+    private Long id;
 
-    @JsonCreator
-    public TrainingTypeEntity(
-            @JsonProperty("id") Long id,
-            @JsonProperty("trainingType") TrainingType trainingType) {
-        this.id = id;
-        this.trainingType = trainingType;
-    }
-
-    public static TrainingTypeEntity of(TrainingType trainingType) {
-        long id = switch (trainingType) {
-            case BODY_BUILDING -> 1L;
-            case CROSSFIT -> 2L;
-            case FITNESS -> 3L;
-        };
-        return new TrainingTypeEntity(id, trainingType);
-    }
+    @Enumerated(EnumType.STRING)
+    @Column(name = "training_type_name", nullable = false, unique = true, length = 50)
+    private TrainingType trainingType;
 
     public enum TrainingType {
         BODY_BUILDING,

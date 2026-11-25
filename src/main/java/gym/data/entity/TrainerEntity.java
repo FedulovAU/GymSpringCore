@@ -1,23 +1,44 @@
 package gym.data.entity;
 
-import com.fasterxml.jackson.annotation.JsonCreator;
-import com.fasterxml.jackson.annotation.JsonProperty;
+import jakarta.persistence.CascadeType;
+import jakarta.persistence.Entity;
+import jakarta.persistence.FetchType;
+import jakarta.persistence.GeneratedValue;
+import jakarta.persistence.GenerationType;
+import jakarta.persistence.Id;
+import jakarta.persistence.JoinColumn;
+import jakarta.persistence.ManyToOne;
+import jakarta.persistence.OneToOne;
+import jakarta.persistence.Table;
+import lombok.AccessLevel;
 import lombok.Getter;
-import lombok.With;
+import lombok.NoArgsConstructor;
+import lombok.Setter;
+import org.hibernate.annotations.OnDelete;
+import org.hibernate.annotations.OnDeleteAction;
 
+@Entity
+@Table(name = "trainer")
+@NoArgsConstructor(access = AccessLevel.PROTECTED)
 @Getter
-@With
+@Setter
 public class TrainerEntity {
-    private final Long id;
-    private final UserEntity user;
-    private final TrainingTypeEntity specialization;
+    @Id
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
+    @Setter(AccessLevel.NONE)
+    private Long id;
 
-    @JsonCreator
-    public TrainerEntity(
-            @JsonProperty("id") Long id,
-            @JsonProperty("user") UserEntity user,
-            @JsonProperty("specialization") TrainingTypeEntity specialization) {
-        this.id = id;
+    @OneToOne(optional = false, cascade = CascadeType.ALL)
+    @JoinColumn(name = "user_id", nullable = false, unique = true, updatable = false)
+    @OnDelete(action = OnDeleteAction.CASCADE)
+    @Setter(AccessLevel.NONE)
+    private UserEntity user;
+
+    @ManyToOne(optional = false)
+    @JoinColumn(name = "specialization_id", nullable = false)
+    private TrainingTypeEntity specialization;
+
+    public TrainerEntity(UserEntity user, TrainingTypeEntity specialization) {
         this.user = user;
         this.specialization = specialization;
     }

@@ -3,12 +3,12 @@ CREATE TABLE users (
     first_name     VARCHAR(100) NOT NULL,
     last_name      VARCHAR(100) NOT NULL,
     base_username  VARCHAR(201) NOT NULL,
-    suffix         INTEGER      NOT NULL DEFAULT 0,
+    username_suffix         INTEGER      NOT NULL DEFAULT 0,
     username       VARCHAR(255) NOT NULL,
     password       VARCHAR(255) NOT NULL,
     is_active      BOOLEAN      NOT NULL DEFAULT TRUE,
     CONSTRAINT uq_users_username     UNIQUE (username),
-    CONSTRAINT uq_users_base_suffix  UNIQUE (base_username, suffix)
+    CONSTRAINT uq_users_base_suffix  UNIQUE (base_username, username_suffix)
 );
 
 CREATE TABLE training_type (

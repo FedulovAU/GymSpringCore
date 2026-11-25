@@ -1,4 +1,4 @@
-INSERT INTO users (first_name, last_name, base_username, suffix, username, password, is_active) VALUES
+INSERT INTO users (first_name, last_name, base_username, username_suffix, username, password, is_active) VALUES
     ('John', 'Smith',  'John_Smith',  0, 'John_Smith',   'u1egUEoOeN', TRUE),
     ('John', 'Smith',  'John_Smith',  1, 'John_Smith_1', '6ZvzFttA4A', TRUE),
     ('Mia',  'Wong',   'Mia_Wong',    0, 'Mia_Wong',     'IJqEpIXZHt', TRUE),

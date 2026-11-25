@@ -1,6 +1,8 @@
 package gym.configuration;
 
 import org.hibernate.SessionFactory;
+import org.hibernate.boot.model.naming.PhysicalNamingStrategySnakeCaseImpl;
+import org.hibernate.cfg.MappingSettings;
 import org.hibernate.cfg.SchemaToolingSettings;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -60,6 +62,7 @@ public class HibernateConfig {
 
         properties.put(SchemaToolingSettings.HBM2DDL_IMPORT_FILES_SQL_EXTRACTOR, "multi-line");
         properties.put(SchemaToolingSettings.HBM2DDL_HALT_ON_ERROR, "true");
+        properties.put(MappingSettings.PHYSICAL_NAMING_STRATEGY, PhysicalNamingStrategySnakeCaseImpl.class.getName());
         return properties;
     }
 }
