@@ -8,7 +8,6 @@ import gym.dto.request.UpdateTrainer;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
 
-import java.time.Duration;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 
@@ -66,7 +65,7 @@ public class RequestValidator {
                     + scheduleGapMinutesMin + " minutes from now.");
         }
 
-        if (request.duration() == null || request.duration().compareTo(Duration.ofMinutes(trainingDurationMinutesMin)) < 0) {
+        if (request.trainingDurationMinutes() < trainingDurationMinutesMin) {
             throw new IllegalArgumentException("Training duration must be at least " + trainingDurationMinutesMin + " minutes.");
         }
     }

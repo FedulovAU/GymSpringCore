@@ -19,7 +19,7 @@ import java.util.Properties;
 @EnableTransactionManagement
 public class HibernateConfig {
 
-    private static final String ENTITY_PACKAGE = "gym.data.entity";
+    private static final String ENTITY_PACKAGE = "gym.data";
 
     private final Environment environment;
 

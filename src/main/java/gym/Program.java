@@ -18,7 +18,6 @@ import gym.service.exception.ProfileNotFoundException;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.context.annotation.AnnotationConfigApplicationContext;
 
-import java.time.Duration;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 
@@ -67,7 +66,7 @@ public class Program {
 
             LocalDateTime nextWeek = LocalDate.now().plusWeeks(1).atTime(18, 0);
             trainingService.addTraining(new AddTraining(
-                    trainee.username(), trainer.username(), "Intro session", nextWeek, Duration.ofHours(1)));
+                    trainee.username(), trainer.username(), "Intro session", nextWeek, 60));
 
             trainingService.getTraineeTrainings(SEEDED_TRAINEE, new TraineeTrainingsFilter(null, null, null, null))
                     .forEach(t -> log.info("Trainee training: {}.", t));

@@ -14,7 +14,6 @@ import gym.dto.response.Trainer;
 import gym.dto.response.Training;
 import org.junit.jupiter.api.Test;
 
-import java.time.Duration;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.Optional;
@@ -67,15 +66,14 @@ class GymMapperTest {
     }
 
     @Test
-    void toTraining_mapsParticipantsByUsernameAndDurationInMinutes() {
+    void toTraining_mapsParticipantsByUsernameAndDuration() {
         var trainee = new TraineeEntity(johnUser(), BIRTH_DATE, null);
         var trainer = new TrainerEntity(annaUser(), trainingType(TrainingType.CROSSFIT));
         var crossfit = trainingType(TrainingType.CROSSFIT);
         TrainingEntity training = new TrainingEntity(trainee, trainer, "Morning WOD", crossfit, START, 90);
 
-        var duration = Duration.ofMinutes(90);
         var expectedTraining = new Training(
-                "John_Smith", "Anna_Lee", "Morning WOD", TrainingType.CROSSFIT, START, duration);
+                "John_Smith", "Anna_Lee", "Morning WOD", TrainingType.CROSSFIT, START, 90);
         assertEquals(expectedTraining, mapper.toTraining(training));
     }
 

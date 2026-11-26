@@ -14,7 +14,6 @@ import gym.dto.response.Trainer;
 import gym.dto.response.Training;
 import org.springframework.stereotype.Component;
 
-import java.time.Duration;
 import java.util.Optional;
 
 @Component
@@ -52,7 +51,7 @@ public class GymMapper {
                 training.getTrainingName(),
                 training.getTrainingType().getTrainingType(),
                 training.getTrainingDate(),
-                Duration.ofMinutes(training.getTrainingDurationMinutes()));
+                training.getTrainingDurationMinutes());
     }
 
     public void applyUpdate(UpdateTrainee request, TraineeEntity trainee) {

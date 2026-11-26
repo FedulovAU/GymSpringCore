@@ -19,7 +19,6 @@ import org.springframework.context.annotation.PropertySource;
 import org.springframework.test.context.TestConstructor;
 import org.springframework.test.context.junit.jupiter.SpringJUnitConfig;
 
-import java.time.Duration;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.stream.Stream;
@@ -40,7 +39,7 @@ class RequestValidatorTest {
     private static final LocalDate BIRTH_DATE = LocalDate.of(1990, 5, 17);
     private static final LocalDate TOMORROW = LocalDate.now().plusDays(1);
     private static final LocalDateTime NEXT_WEEK = LocalDate.now().plusWeeks(1).atTime(10, 0);
-    private static final Duration ONE_HOUR = Duration.ofHours(1);
+    private static final int ONE_HOUR = 60;
 
     private final RequestValidator validator;
     private final int minTraineeAge;
@@ -163,8 +162,7 @@ class RequestValidatorTest {
 
     @Test
     void validateAddTrainingRequest_exactlyMinDuration_passes() {
-        var duration = Duration.ofMinutes(trainingDurationMinutesMin);
-        var request = training("Morning", NEXT_WEEK, duration);
+        var request = training("Morning", NEXT_WEEK, trainingDurationMinutesMin);
         assertDoesNotThrow(() -> validator.validateAddTrainingRequest(request));
     }
 
@@ -175,9 +173,9 @@ class RequestValidatorTest {
                 arguments("blank name", training(" ", NEXT_WEEK, ONE_HOUR)),
                 arguments("date in the past", training("Morning", yesterday, ONE_HOUR)),
                 arguments("within schedule gap", training("Morning", inOneMinute, ONE_HOUR)),
-                arguments("shorter than min duration", training("Morning", NEXT_WEEK, Duration.ofMinutes(1))),
-                arguments("null duration", training("Morning", NEXT_WEEK, null)),
-                arguments("negative duration", training("Morning", NEXT_WEEK, ONE_HOUR.negated())));
+                arguments("shorter than min duration", training("Morning", NEXT_WEEK, 1)),
+                arguments("zero duration", training("Morning", NEXT_WEEK, 0)),
+                arguments("negative duration", training("Morning", NEXT_WEEK, -ONE_HOUR)));
     }
 
     @ParameterizedTest(name = "{0}")
@@ -186,7 +184,7 @@ class RequestValidatorTest {
         assertThrows(IllegalArgumentException.class, () -> validator.validateAddTrainingRequest(request));
     }
 
-    private static AddTraining training(String name, LocalDateTime date, Duration duration) {
-        return new AddTraining("John_Smith", "Anna_Lee", name, date, duration);
+    private static AddTraining training(String name, LocalDateTime date, int durationMinutes) {
+        return new AddTraining("John_Smith", "Anna_Lee", name, date, durationMinutes);
     }
 }

@@ -23,7 +23,6 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
-import java.time.Duration;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.List;
@@ -46,8 +45,8 @@ class TrainingServiceTest {
     private static final String TRAINEE = "John_Smith";
     private static final String TRAINER = "Anna_Lee";
     private static final LocalDateTime START = LocalDate.now().plusWeeks(1).atTime(10, 0);
-    private static final LocalDateTime END = START.plusHours(1);
-    private static final Duration ONE_HOUR = Duration.ofHours(1);
+    private static final int ONE_HOUR = 60;
+    private static final LocalDateTime END = START.plusMinutes(ONE_HOUR);
 
     @Mock
     private TrainingRepository trainingRepository;
@@ -94,52 +93,83 @@ class TrainingServiceTest {
         return new AddTraining(TRAINEE, TRAINER, "Morning", START, ONE_HOUR);
     }
 
+    private static TrainingEntity existingTraining(LocalDateTime start, int durationMinutes) {
+        return new TrainingEntity(null, null, "Existing", null, start, durationMinutes);
+    }
+
     @Test
     void addTraining_free_savesTrainingWithTrainerSpecialization() {
         TraineeEntity trainee = stubTrainee(true);
         TrainerEntity trainer = stubTrainer(true);
+        when(trainingRepository.findAllByTrainer(trainer)).thenReturn(List.of());
+        when(trainingRepository.findAllByTrainee(trainee)).thenReturn(List.of());
         when(trainingRepository.save(any())).then(returnsFirstArg());
 
         Training result = service.addTraining(request());
 
         var expectedTraining = new Training(TRAINEE, TRAINER, "Morning", TrainingType.CROSSFIT, START, ONE_HOUR);
         assertEquals(expectedTraining, result);
-        verify(trainingRepository).existsOverlappingForTrainer(trainer, START, END);
-        verify(trainingRepository).existsOverlappingForTrainee(trainee, START, END);
         verify(trainingRepository).save(argThat(t -> t.getTrainee() == trainee
                 && t.getTrainer() == trainer
                 && t.getTrainingType() == trainer.getSpecialization()
-                && t.getTrainingDurationMinutes() == 60));
+                && t.getTrainingDurationMinutes() == ONE_HOUR));
         verify(traineeRepository).findByUsername(TRAINEE);
         verify(trainerRepository).findByUsername(TRAINER);
+        verify(trainingRepository).findAllByTrainer(trainer);
+        verify(trainingRepository).findAllByTrainee(trainee);
     }
 
     @Test
-    void addTraining_trainerBusy_throwsAndSavesNothing() {
+    void addTraining_trainerScheduleOverlaps_throwsAndSavesNothing() {
         stubTrainee(true);
         TrainerEntity trainer = stubTrainer(true);
-        when(trainingRepository.existsOverlappingForTrainer(trainer, START, END)).thenReturn(true);
+        var overlapping = existingTraining(START.plusMinutes(30), ONE_HOUR);
+        when(trainingRepository.findAllByTrainer(trainer)).thenReturn(List.of(overlapping));
 
         assertThrows(CannotScheduleTrainingException.class, () -> service.addTraining(request()));
 
         verify(trainingRepository, never()).save(any());
         verify(traineeRepository).findByUsername(TRAINEE);
         verify(trainerRepository).findByUsername(TRAINER);
-        verify(trainingRepository).existsOverlappingForTrainer(trainer, START, END);
+        verify(trainingRepository).findAllByTrainer(trainer);
     }
 
     @Test
-    void addTraining_traineeBusy_throwsAndSavesNothing() {
+    void addTraining_traineeScheduleOverlaps_throwsAndSavesNothing() {
         TraineeEntity trainee = stubTrainee(true);
-        stubTrainer(true);
-        when(trainingRepository.existsOverlappingForTrainee(trainee, START, END)).thenReturn(true);
+        TrainerEntity trainer = stubTrainer(true);
+        var overlapping = existingTraining(START.minusMinutes(30), ONE_HOUR);
+        when(trainingRepository.findAllByTrainer(trainer)).thenReturn(List.of());
+        when(trainingRepository.findAllByTrainee(trainee)).thenReturn(List.of(overlapping));
 
         assertThrows(CannotScheduleTrainingException.class, () -> service.addTraining(request()));
 
         verify(trainingRepository, never()).save(any());
         verify(traineeRepository).findByUsername(TRAINEE);
         verify(trainerRepository).findByUsername(TRAINER);
-        verify(trainingRepository).existsOverlappingForTrainee(trainee, START, END);
+        verify(trainingRepository).findAllByTrainer(trainer);
+        verify(trainingRepository).findAllByTrainee(trainee);
+    }
+
+    @Test
+    void addTraining_backToBackWithExisting_savesTraining() {
+        TraineeEntity trainee = stubTrainee(true);
+        TrainerEntity trainer = stubTrainer(true);
+        var endsAtStart = existingTraining(START.minusHours(1), ONE_HOUR);
+        var startsAtEnd = existingTraining(END, ONE_HOUR);
+        when(trainingRepository.findAllByTrainer(trainer)).thenReturn(List.of(endsAtStart));
+        when(trainingRepository.findAllByTrainee(trainee)).thenReturn(List.of(startsAtEnd));
+        when(trainingRepository.save(any())).then(returnsFirstArg());
+
+        Training result = service.addTraining(request());
+
+        var expectedTraining = new Training(TRAINEE, TRAINER, "Morning", TrainingType.CROSSFIT, START, ONE_HOUR);
+        assertEquals(expectedTraining, result);
+        verify(trainingRepository).save(any());
+        verify(traineeRepository).findByUsername(TRAINEE);
+        verify(trainerRepository).findByUsername(TRAINER);
+        verify(trainingRepository).findAllByTrainer(trainer);
+        verify(trainingRepository).findAllByTrainee(trainee);
     }
 
     @Test
@@ -193,7 +223,7 @@ class TrainingServiceTest {
     void getTrainerTrainings_mapsFoundTrainings() {
         var trainee = new TraineeEntity(user(TRAINEE, true), null, null);
         var trainer = new TrainerEntity(user(TRAINER, true), crossfit());
-        TrainingEntity training = new TrainingEntity(trainee, trainer, "Morning", crossfit(), START, 60);
+        TrainingEntity training = new TrainingEntity(trainee, trainer, "Morning", crossfit(), START, ONE_HOUR);
         when(trainingRepository.findTrainerTrainings(TRAINER, null, null, "John")).thenReturn(List.of(training));
 
         var filter = new TrainerTrainingsFilter(null, null, "John");

@@ -54,24 +54,16 @@ public class TrainingService {
         TraineeEntity trainee = getActiveTrainee(request.traineeUsername());
         TrainerEntity trainer = getActiveTrainer(request.trainerUsername());
 
-        LocalDateTime start = request.trainingDate();
-        LocalDateTime end = start.plus(request.duration());
-        if (trainingRepository.existsOverlappingForTrainer(trainer, start, end)) {
-            throw new CannotScheduleTrainingException(
-                    "Trainer '" + request.trainerUsername() + "' already has a training at that time.");
-        }
-        if (trainingRepository.existsOverlappingForTrainee(trainee, start, end)) {
-            throw new CannotScheduleTrainingException(
-                    "Trainee '" + request.traineeUsername() + "' already has a training at that time.");
-        }
+        ensureNoOverlap(trainingRepository.findAllByTrainer(trainer), request, "Trainer");
+        ensureNoOverlap(trainingRepository.findAllByTrainee(trainee), request, "Trainee");
 
         TrainingEntity training = trainingRepository.save(new TrainingEntity(
                 trainee,
                 trainer,
                 request.trainingName(),
                 trainer.getSpecialization(),
-                start,
-                Math.toIntExact(request.duration().toMinutes())));
+                request.trainingDate(),
+                request.trainingDurationMinutes()));
 
         log.info("addTraining completed, trainee={}, trainer={}.", request.traineeUsername(), request.trainerUsername());
         return gymMapper.toTraining(training);
@@ -83,7 +75,7 @@ public class TrainingService {
         return trainingRepository.findTraineeTrainings(
                         traineeUsername,
                         startOfDay(filter.fromDate()),
-                        startOfNextDay(filter.toDate()),
+                        startOfDay(filter.toDate()),
                         filter.trainerName(),
                         filter.trainingType())
                 .stream()
@@ -96,11 +88,26 @@ public class TrainingService {
         return trainingRepository.findTrainerTrainings(
                         trainerUsername,
                         startOfDay(filter.fromDate()),
-                        startOfNextDay(filter.toDate()),
+                        startOfDay(filter.toDate()),
                         filter.traineeName())
                 .stream()
                 .map(gymMapper::toTraining)
                 .toList();
+    }
+
+    private static void ensureNoOverlap(List<TrainingEntity> existing, AddTraining request, String who) {
+        LocalDateTime newStart = request.trainingDate();
+        LocalDateTime newEnd = newStart.plusMinutes(request.trainingDurationMinutes());
+
+        for (TrainingEntity training : existing) {
+            LocalDateTime existingStart = training.getTrainingDate();
+            LocalDateTime existingEnd = existingStart.plusMinutes(training.getTrainingDurationMinutes());
+
+            if (newStart.isBefore(existingEnd) && newEnd.isAfter(existingStart)) {
+                throw new CannotScheduleTrainingException(who + " already has a training at that time: '"
+                        + training.getTrainingName() + "' (" + existingStart + " - " + existingEnd + ").");
+            }
+        }
     }
 
     private TraineeEntity getActiveTrainee(String username) {
@@ -123,9 +130,5 @@ public class TrainingService {
 
     private static LocalDateTime startOfDay(LocalDate date) {
         return date == null ? null : date.atStartOfDay();
-    }
-
-    private static LocalDateTime startOfNextDay(LocalDate date) {
-        return date == null ? null : date.plusDays(1).atStartOfDay();
     }
 }

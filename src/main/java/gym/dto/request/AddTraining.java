@@ -1,6 +1,5 @@
 package gym.dto.request;
 
-import java.time.Duration;
 import java.time.LocalDateTime;
 
 public record AddTraining(
@@ -8,5 +7,5 @@ public record AddTraining(
         String trainerUsername,
         String trainingName,
         LocalDateTime trainingDate,
-        Duration duration) {
+        int trainingDurationMinutes) {
 }

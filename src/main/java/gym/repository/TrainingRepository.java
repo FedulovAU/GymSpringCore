@@ -38,7 +38,7 @@ public class TrainingRepository {
                                 + "join fetch t.trainingType tt "
                                 + "where teu.username = :traineeUsername "
                                 + "and (cast(:from as LocalDateTime) is null or t.trainingDate >= :from) "
-                                + "and (cast(:to as LocalDateTime) is null or t.trainingDate < :to) "
+                                + "and (cast(:to as LocalDateTime) is null or t.trainingDate <= :to) "
                                 + "and (:trainerName is null or tru.firstName = :trainerName or tru.lastName = :trainerName) "
                                 + "and (:trainingType is null or tt.trainingType = :trainingType) ",
                         TrainingEntity.class)
@@ -63,7 +63,7 @@ public class TrainingRepository {
                                 + "join fetch t.trainingType "
                                 + "where tru.username = :trainerUsername "
                                 + "and (cast(:from as LocalDateTime) is null or t.trainingDate >= :from) "
-                                + "and (cast(:to as LocalDateTime) is null or t.trainingDate < :to) "
+                                + "and (cast(:to as LocalDateTime) is null or t.trainingDate <= :to) "
                                 + "and (:traineeName is null or teu.firstName = :traineeName or teu.lastName = :traineeName) ",
                         TrainingEntity.class)
                 .setParameter("trainerUsername", trainerUsername)
@@ -73,25 +73,17 @@ public class TrainingRepository {
                 .getResultList();
     }
 
-    public boolean existsOverlappingForTrainee(TraineeEntity trainee, LocalDateTime start, LocalDateTime end) {
-        return countOverlapping("t.trainee = :participant", trainee, start, end) > 0;
-    }
-
-    public boolean existsOverlappingForTrainer(TrainerEntity trainer, LocalDateTime start, LocalDateTime end) {
-        return countOverlapping("t.trainer = :participant", trainer, start, end) > 0;
-    }
-
-    private long countOverlapping(String participantCondition, Object participant, LocalDateTime start, LocalDateTime end) {
+    public List<TrainingEntity> findAllByTrainee(TraineeEntity trainee) {
         return sessionFactory.getCurrentSession()
-                .createSelectionQuery(
-                        "select count(t) from TrainingEntity t "
-                                + "where " + participantCondition + " "
-                                + "and t.trainingDate < :end "
-                                + "and t.trainingDate + (t.trainingDurationMinutes) minute > :start",
-                        Long.class)
-                .setParameter("participant", participant)
-                .setParameter("start", start)
-                .setParameter("end", end)
-                .getSingleResult();
+                .createSelectionQuery("select t from TrainingEntity t where t.trainee = :trainee", TrainingEntity.class)
+                .setParameter("trainee", trainee)
+                .getResultList();
+    }
+
+    public List<TrainingEntity> findAllByTrainer(TrainerEntity trainer) {
+        return sessionFactory.getCurrentSession()
+                .createSelectionQuery("select t from TrainingEntity t where t.trainer = :trainer", TrainingEntity.class)
+                .setParameter("trainer", trainer)
+                .getResultList();
     }
 }
