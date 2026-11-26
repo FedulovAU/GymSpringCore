@@ -16,6 +16,7 @@ import org.hibernate.annotations.OnDelete;
 import org.hibernate.annotations.OnDeleteAction;
 
 import java.time.LocalDateTime;
+import java.util.Objects;
 
 @Entity
 @Table(name = "training")
@@ -62,5 +63,22 @@ public class TrainingEntity {
         this.trainingType = trainingType;
         this.trainingDate = trainingDate;
         this.trainingDurationMinutes = trainingDurationMinutes;
+    }
+
+    @Override
+    public int hashCode() {
+        return Objects.hash(trainee, trainer, trainingDate);
+    }
+
+    @Override
+    public boolean equals(Object obj) {
+        if (this == obj) return true;
+        if (!(obj instanceof TrainingEntity other)) {
+            return false;
+        }
+
+        return trainee.equals(other.getTrainee()) &&
+                trainer.equals(other.getTrainer()) &&
+                trainingDate.equals(other.getTrainingDate());
     }
 }

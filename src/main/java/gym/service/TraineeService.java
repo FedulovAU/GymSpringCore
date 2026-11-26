@@ -4,12 +4,15 @@ import gym.data.TraineeEntity;
 import gym.data.UserEntity;
 import gym.dto.request.CreateTrainee;
 import gym.dto.request.UpdateTrainee;
-import gym.dto.response.Credentials;
 import gym.dto.response.Trainee;
 import gym.repository.TraineeRepository;
+import gym.service.exception.AuthenticationException;
 import gym.service.exception.ProfileNotFoundException;
 import gym.service.helper.UserFactory;
 import gym.service.mapper.GymMapper;
+import gym.service.security.AuthenticatedUser;
+import gym.service.security.AuthenticationContext;
+import gym.service.security.UserRole;
 import gym.service.validation.RequestValidator;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
@@ -24,27 +27,30 @@ public class TraineeService {
     private final UserFactory userFactory;
     private final RequestValidator requestValidator;
     private final GymMapper gymMapper;
+    private final AuthenticationContext authenticationContext;
 
     public TraineeService(
             TraineeRepository traineeRepository,
             UserFactory userFactory,
             RequestValidator requestValidator,
-            GymMapper gymMapper) {
+            GymMapper gymMapper,
+            AuthenticationContext authenticationContext) {
         this.traineeRepository = traineeRepository;
         this.userFactory = userFactory;
         this.requestValidator = requestValidator;
         this.gymMapper = gymMapper;
+        this.authenticationContext = authenticationContext;
     }
 
     @Transactional
-    public Credentials createTrainee(CreateTrainee request) {
+    public Trainee createTrainee(CreateTrainee request) {
         requestValidator.validateCreateTraineeRequest(request);
 
-        UserEntity user = userFactory.createUser(request.firstName(), request.lastName());
-        traineeRepository.save(new TraineeEntity(user, request.dateOfBirth(), request.address()));
+        UserEntity user = userFactory.createUser(request.firstName(), request.lastName(), request.password());
+        var traineeEntity = traineeRepository.save(new TraineeEntity(user, request.dateOfBirth(), request.address()));
 
-        log.info("createTrainee completed, username={}.", user.getUsername());
-        return gymMapper.toCredentials(user);
+        log.info("createTrainee completed, traineeId={}.", traineeEntity.getId());
+        return gymMapper.toTrainee(traineeEntity);
     }
 
     @Transactional(readOnly = true)
@@ -54,44 +60,75 @@ public class TraineeService {
                 .orElse(false);
     }
 
+    @Transactional
+    public void signOut() {
+        TraineeEntity trainee = getTrainee(authenticationContext.getUserByRole(UserRole.TRAINEE));
+        authenticationContext.signOut();
+        log.info("signOut completed, traineeId={}.", trainee.getId());
+    }
+
+    @Transactional(readOnly = true)
+    public void signIn(String username, String password) {
+        TraineeEntity trainee = traineeRepository.findByUsername(username)
+                .filter(found -> found.getUser().getPassword().equals(password))
+                .orElseThrow(() -> new AuthenticationException("Invalid trainee username or password."));
+
+        authenticationContext.signIn(new AuthenticatedUser(username, UserRole.TRAINEE));
+        log.info("signIn completed, traineeId={}.", trainee.getId());
+    }
+
     @Transactional(readOnly = true)
     public Optional<Trainee> findByUsername(String username) {
+        authenticationContext.requireSignedIn();
+
         return traineeRepository.findByUsername(username).map(gymMapper::toTrainee);
     }
 
     @Transactional
-    public void changePassword(String username, String newPassword) {
+    public void changePassword(String newPassword) {
+        String username = authenticationContext.getUserByRole(UserRole.TRAINEE);
         requestValidator.validatePassword(newPassword);
 
-        getTrainee(username).getUser().setPassword(newPassword);
-        log.info("changePassword completed, trainee username={}.", username);
+        TraineeEntity trainee = getTrainee(username);
+        trainee.getUser().setPassword(newPassword);
+        log.info("changePassword completed, traineeId={}.", trainee.getId());
     }
 
     @Transactional
     public Trainee updateTrainee(UpdateTrainee request) {
+        String username = authenticationContext.getUserByRole(UserRole.TRAINEE);
         requestValidator.validateUpdateTraineeRequest(request);
 
-        TraineeEntity trainee = getTrainee(request.username());
+        TraineeEntity trainee = getTrainee(username);
         gymMapper.applyUpdate(request, trainee);
 
-        log.info("updateTrainee completed, username={}.", request.username());
+        log.info("updateTrainee completed, traineeId={}.", trainee.getId());
         return gymMapper.toTrainee(trainee);
     }
 
     @Transactional
-    public void setActive(String username, boolean isActive) {
-        getTrainee(username).getUser().setActive(isActive);
-        log.info("setActive completed, trainee username={}, isActive={}.", username, isActive);
+    public boolean switchActive() {
+        String username = authenticationContext.getUserByRole(UserRole.TRAINEE);
+
+        TraineeEntity trainee = getTrainee(username);
+        boolean isActive = !trainee.getUser().isActive();
+        trainee.getUser().setActive(isActive);
+        log.info("switchActive completed, traineeId={}, isActive={}.", trainee.getId(), isActive);
+        return isActive;
     }
 
     @Transactional
-    public void deleteByUsername(String username) {
-        traineeRepository.delete(getTrainee(username));
-        log.info("deleteByUsername completed, trainee username={}.", username);
+    public void deleteProfile() {
+        String username = authenticationContext.getUserByRole(UserRole.TRAINEE);
+
+        TraineeEntity trainee = getTrainee(username);
+        traineeRepository.delete(trainee);
+        authenticationContext.signOut();
+        log.info("deleteProfile completed, traineeId={}.", trainee.getId());
     }
 
     private TraineeEntity getTrainee(String username) {
         return traineeRepository.findByUsername(username)
-                .orElseThrow(() -> new ProfileNotFoundException("Trainee '" + username + "' not found."));
+                .orElseThrow(() -> new ProfileNotFoundException("Trainee not found."));
     }
 }

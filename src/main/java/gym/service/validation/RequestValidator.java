@@ -24,9 +24,13 @@ public class RequestValidator {
     @Value("${minTraineeAge}")
     private int minTraineeAge;
 
+    @Value("${passwordMinLength}")
+    private int passwordMinLength;
+
     public void validateCreateTraineeRequest(CreateTrainee request) {
         validateRequiredName(request.firstName(), "First name");
         validateRequiredName(request.lastName(), "Last name");
+        validatePassword(request.password());
         validateDateOfBirth(request.dateOfBirth());
     }
 
@@ -39,6 +43,7 @@ public class RequestValidator {
     public void validateCreateTrainerRequest(CreateTrainer request) {
         validateRequiredName(request.firstName(), "First name");
         validateRequiredName(request.lastName(), "Last name");
+        validatePassword(request.password());
         if (request.specialization() == null) {
             throw new IllegalArgumentException("Specialization is required.");
         }
@@ -52,6 +57,10 @@ public class RequestValidator {
     public void validatePassword(String password) {
         if (password == null || password.isBlank()) {
             throw new IllegalArgumentException("Password must not be blank.");
+        }
+
+        if(password.length() < passwordMinLength) {
+            throw new IllegalArgumentException("Password must be at least " + passwordMinLength + " characters long.");
         }
     }
 

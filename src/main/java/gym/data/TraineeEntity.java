@@ -51,4 +51,19 @@ public class TraineeEntity {
         this.dateOfBirth = dateOfBirth;
         this.address = address;
     }
+
+    @Override
+    public int hashCode() {
+        return user.hashCode();
+    }
+
+    @Override
+    public boolean equals(Object obj) {
+        if (this == obj) return true;
+        if (!(obj instanceof TraineeEntity other)) {
+            return false;
+        }
+
+        return user.equals(other.getUser());
+    }
 }

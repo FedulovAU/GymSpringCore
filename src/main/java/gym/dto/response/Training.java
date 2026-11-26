@@ -5,8 +5,9 @@ import gym.enums.TrainingType;
 import java.time.LocalDateTime;
 
 public record Training(
-        String traineeUsername,
-        String trainerUsername,
+        Long id,
+        Trainee trainee,
+        Trainer trainer,
         String trainingName,
         TrainingType trainingType,
         LocalDateTime trainingDate,

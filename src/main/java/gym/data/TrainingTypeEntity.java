@@ -12,6 +12,8 @@ import lombok.Getter;
 import lombok.NoArgsConstructor;
 import org.hibernate.annotations.Immutable;
 
+import java.util.Objects;
+
 @Entity
 @Immutable
 @Table(name = "training_type")
@@ -25,4 +27,18 @@ public class TrainingTypeEntity {
     @Column(name = "training_type_name", nullable = false, unique = true, length = 50)
     private TrainingType trainingType;
 
+    @Override
+    public int hashCode() {
+        return Objects.hash(trainingType);
+    }
+
+    @Override
+    public boolean equals(Object obj) {
+        if (this == obj) return true;
+        if (!(obj instanceof TrainingTypeEntity other)) {
+            return false;
+        }
+
+        return trainingType.equals(other.getTrainingType());
+    }
 }

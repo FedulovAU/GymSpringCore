@@ -9,13 +9,19 @@ import gym.enums.TrainingType;
 import gym.dto.request.AddTraining;
 import gym.dto.request.TraineeTrainingsFilter;
 import gym.dto.request.TrainerTrainingsFilter;
+import gym.dto.response.Trainee;
+import gym.dto.response.Trainer;
 import gym.dto.response.Training;
 import gym.repository.TraineeRepository;
 import gym.repository.TrainerRepository;
 import gym.repository.TrainingRepository;
 import gym.service.exception.CannotScheduleTrainingException;
+import gym.service.exception.AuthenticationException;
 import gym.service.exception.ProfileNotFoundException;
 import gym.service.mapper.GymMapper;
+import gym.service.security.AuthenticatedUser;
+import gym.service.security.AuthenticationContext;
+import gym.service.security.UserRole;
 import gym.service.validation.RequestValidator;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -37,6 +43,7 @@ import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 
 @ExtendWith(MockitoExtension.class)
@@ -44,6 +51,8 @@ class TrainingServiceTest {
 
     private static final String TRAINEE = "John_Smith";
     private static final String TRAINER = "Anna_Lee";
+    private static final String OTHER_TRAINEE = "Mia_Wong";
+    private static final String PASSWORD = "secret12345";
     private static final LocalDateTime START = LocalDate.now().plusWeeks(1).atTime(10, 0);
     private static final int ONE_HOUR = 60;
     private static final LocalDateTime END = START.plusMinutes(ONE_HOUR);
@@ -55,16 +64,19 @@ class TrainingServiceTest {
     @Mock
     private TrainerRepository trainerRepository;
 
+    private AuthenticationContext authenticationContext;
     private TrainingService service;
 
     @BeforeEach
     void setUp() {
+        authenticationContext = new AuthenticationContext();
         service = new TrainingService(
                 trainingRepository,
                 traineeRepository,
                 trainerRepository,
                 new RequestValidator(),
-                new GymMapper());
+                new GymMapper(),
+                authenticationContext);
     }
 
     private static TrainingTypeEntity crossfit() {
@@ -97,8 +109,13 @@ class TrainingServiceTest {
         return new TrainingEntity(null, null, "Existing", null, start, durationMinutes);
     }
 
+    private void signInAsTrainee() {
+        authenticationContext.signIn(new AuthenticatedUser(TRAINEE, UserRole.TRAINEE));
+    }
+
     @Test
     void addTraining_free_savesTrainingWithTrainerSpecialization() {
+        signInAsTrainee();
         TraineeEntity trainee = stubTrainee(true);
         TrainerEntity trainer = stubTrainer(true);
         when(trainingRepository.findAllByTrainer(trainer)).thenReturn(List.of());
@@ -107,7 +124,10 @@ class TrainingServiceTest {
 
         Training result = service.addTraining(request());
 
-        var expectedTraining = new Training(TRAINEE, TRAINER, "Morning", TrainingType.CROSSFIT, START, ONE_HOUR);
+        var expectedTrainee = new Trainee(null, TRAINEE, "Name", "Surname", null, null);
+        var expectedTrainer = new Trainer(null, TRAINER, "Name", "Surname", TrainingType.CROSSFIT);
+        var expectedTraining = new Training(
+                null, expectedTrainee, expectedTrainer, "Morning", TrainingType.CROSSFIT, START, ONE_HOUR);
         assertEquals(expectedTraining, result);
         verify(trainingRepository).save(argThat(t -> t.getTrainee() == trainee
                 && t.getTrainer() == trainer
@@ -121,6 +141,7 @@ class TrainingServiceTest {
 
     @Test
     void addTraining_trainerScheduleOverlaps_throwsAndSavesNothing() {
+        signInAsTrainee();
         stubTrainee(true);
         TrainerEntity trainer = stubTrainer(true);
         var overlapping = existingTraining(START.plusMinutes(30), ONE_HOUR);
@@ -136,6 +157,7 @@ class TrainingServiceTest {
 
     @Test
     void addTraining_traineeScheduleOverlaps_throwsAndSavesNothing() {
+        signInAsTrainee();
         TraineeEntity trainee = stubTrainee(true);
         TrainerEntity trainer = stubTrainer(true);
         var overlapping = existingTraining(START.minusMinutes(30), ONE_HOUR);
@@ -153,6 +175,7 @@ class TrainingServiceTest {
 
     @Test
     void addTraining_backToBackWithExisting_savesTraining() {
+        signInAsTrainee();
         TraineeEntity trainee = stubTrainee(true);
         TrainerEntity trainer = stubTrainer(true);
         var endsAtStart = existingTraining(START.minusHours(1), ONE_HOUR);
@@ -163,7 +186,10 @@ class TrainingServiceTest {
 
         Training result = service.addTraining(request());
 
-        var expectedTraining = new Training(TRAINEE, TRAINER, "Morning", TrainingType.CROSSFIT, START, ONE_HOUR);
+        var expectedTrainee = new Trainee(null, TRAINEE, "Name", "Surname", null, null);
+        var expectedTrainer = new Trainer(null, TRAINER, "Name", "Surname", TrainingType.CROSSFIT);
+        var expectedTraining = new Training(
+                null, expectedTrainee, expectedTrainer, "Morning", TrainingType.CROSSFIT, START, ONE_HOUR);
         assertEquals(expectedTraining, result);
         verify(trainingRepository).save(any());
         verify(traineeRepository).findByUsername(TRAINEE);
@@ -174,6 +200,7 @@ class TrainingServiceTest {
 
     @Test
     void addTraining_inactiveTrainer_throwsCannotSchedule() {
+        signInAsTrainee();
         stubTrainee(true);
         stubTrainer(false);
 
@@ -186,6 +213,7 @@ class TrainingServiceTest {
 
     @Test
     void addTraining_unknownTrainee_throwsProfileNotFound() {
+        signInAsTrainee();
         when(traineeRepository.findByUsername(TRAINEE)).thenReturn(Optional.empty());
 
         assertThrows(ProfileNotFoundException.class, () -> service.addTraining(request()));
@@ -196,6 +224,7 @@ class TrainingServiceTest {
 
     @Test
     void getTraineeTrainings_fullFilter_passesWholeDayRangeAndEntityType() {
+        signInAsTrainee();
         LocalDate from = LocalDate.of(2026, 12, 1);
         LocalDate to = LocalDate.of(2026, 12, 3);
         when(trainingRepository.findTraineeTrainings(any(), any(), any(), any(), any())).thenReturn(List.of());
@@ -211,6 +240,7 @@ class TrainingServiceTest {
 
     @Test
     void getTraineeTrainings_emptyFilter_passesNoCriteria() {
+        signInAsTrainee();
         when(trainingRepository.findTraineeTrainings(any(), any(), any(), any(), any())).thenReturn(List.of());
 
         var filter = new TraineeTrainingsFilter(null, null, null, null);
@@ -221,6 +251,7 @@ class TrainingServiceTest {
 
     @Test
     void getTrainerTrainings_mapsFoundTrainings() {
+        signInAsTrainee();
         var trainee = new TraineeEntity(user(TRAINEE, true), null, null);
         var trainer = new TrainerEntity(user(TRAINER, true), crossfit());
         TrainingEntity training = new TrainingEntity(trainee, trainer, "Morning", crossfit(), START, ONE_HOUR);
@@ -229,8 +260,53 @@ class TrainingServiceTest {
         var filter = new TrainerTrainingsFilter(null, null, "John");
         List<Training> result = service.getTrainerTrainings(TRAINER, filter);
 
-        var expectedTraining = new Training(TRAINEE, TRAINER, "Morning", TrainingType.CROSSFIT, START, ONE_HOUR);
+        var expectedTrainee = new Trainee(null, TRAINEE, "Name", "Surname", null, null);
+        var expectedTrainer = new Trainer(null, TRAINER, "Name", "Surname", TrainingType.CROSSFIT);
+        var expectedTraining = new Training(
+                null, expectedTrainee, expectedTrainer, "Morning", TrainingType.CROSSFIT, START, ONE_HOUR);
         assertEquals(List.of(expectedTraining), result);
         verify(trainingRepository).findTrainerTrainings(TRAINER, null, null, "John");
+    }
+
+    @Test
+    void addTraining_notSignedIn_throwsBeforeTouchingDatabase() {
+        assertThrows(AuthenticationException.class, () -> service.addTraining(request()));
+
+        verifyNoInteractions(trainingRepository, traineeRepository, trainerRepository);
+    }
+
+    @Test
+    void addTraining_signedInAsOtherTrainee_throwsBeforeTouchingDatabase() {
+        authenticationContext.signIn(new AuthenticatedUser(OTHER_TRAINEE, UserRole.TRAINEE));
+
+        assertThrows(AuthenticationException.class, () -> service.addTraining(request()));
+
+        verifyNoInteractions(trainingRepository, traineeRepository, trainerRepository);
+    }
+
+    @Test
+    void addTraining_signedInAsTrainerOfTraining_savesTraining() {
+        authenticationContext.signIn(new AuthenticatedUser(TRAINER, UserRole.TRAINER));
+        TraineeEntity trainee = stubTrainee(true);
+        TrainerEntity trainer = stubTrainer(true);
+        when(trainingRepository.findAllByTrainer(trainer)).thenReturn(List.of());
+        when(trainingRepository.findAllByTrainee(trainee)).thenReturn(List.of());
+        when(trainingRepository.save(any())).then(returnsFirstArg());
+
+        service.addTraining(request());
+
+        verify(trainingRepository).save(any());
+        verify(traineeRepository).findByUsername(TRAINEE);
+        verify(trainerRepository).findByUsername(TRAINER);
+        verify(trainingRepository).findAllByTrainer(trainer);
+        verify(trainingRepository).findAllByTrainee(trainee);
+    }
+
+    @Test
+    void getTrainerTrainings_notSignedIn_throwsBeforeTouchingDatabase() {
+        var filter = new TrainerTrainingsFilter(null, null, null);
+        assertThrows(AuthenticationException.class, () -> service.getTrainerTrainings(TRAINER, filter));
+
+        verifyNoInteractions(trainingRepository);
     }
 }

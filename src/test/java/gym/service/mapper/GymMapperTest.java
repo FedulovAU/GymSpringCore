@@ -8,7 +8,6 @@ import gym.data.UserEntity;
 import gym.enums.TrainingType;
 import gym.dto.request.UpdateTrainee;
 import gym.dto.request.UpdateTrainer;
-import gym.dto.response.Credentials;
 import gym.dto.response.Trainee;
 import gym.dto.response.Trainer;
 import gym.dto.response.Training;
@@ -44,16 +43,10 @@ class GymMapperTest {
     }
 
     @Test
-    void toCredentials_takesUsernameAndPassword() {
-        var expectedCredentials = new Credentials("John_Smith", "secret12345");
-        assertEquals(expectedCredentials, mapper.toCredentials(johnUser()));
-    }
-
-    @Test
     void toTrainee_mapsUserAndTraineeFields() {
         TraineeEntity trainee = new TraineeEntity(johnUser(), BIRTH_DATE, "1 Main St");
 
-        var expectedTrainee = new Trainee("John_Smith", "John", "Smith", BIRTH_DATE, "1 Main St", true);
+        var expectedTrainee = new Trainee(null, "John_Smith", "John", "Smith", BIRTH_DATE, "1 Main St");
         assertEquals(expectedTrainee, mapper.toTrainee(trainee));
     }
 
@@ -61,7 +54,7 @@ class GymMapperTest {
     void toTrainer_mapsUserAndSpecialization() {
         TrainerEntity trainer = new TrainerEntity(annaUser(), trainingType(TrainingType.CROSSFIT));
 
-        var expectedTrainer = new Trainer("Anna_Lee", "Anna", "Lee", TrainingType.CROSSFIT, false);
+        var expectedTrainer = new Trainer(null, "Anna_Lee", "Anna", "Lee", TrainingType.CROSSFIT);
         assertEquals(expectedTrainer, mapper.toTrainer(trainer));
     }
 
@@ -72,8 +65,10 @@ class GymMapperTest {
         var crossfit = trainingType(TrainingType.CROSSFIT);
         TrainingEntity training = new TrainingEntity(trainee, trainer, "Morning WOD", crossfit, START, 90);
 
+        var expectedTrainee = new Trainee(null, "John_Smith", "John", "Smith", BIRTH_DATE, null);
+        var expectedTrainer = new Trainer(null, "Anna_Lee", "Anna", "Lee", TrainingType.CROSSFIT);
         var expectedTraining = new Training(
-                "John_Smith", "Anna_Lee", "Morning WOD", TrainingType.CROSSFIT, START, 90);
+                null, expectedTrainee, expectedTrainer, "Morning WOD", TrainingType.CROSSFIT, START, 90);
         assertEquals(expectedTraining, mapper.toTraining(training));
     }
 
@@ -81,10 +76,10 @@ class GymMapperTest {
     void applyUpdateTrainee_changesOnlyProvidedFields() {
         TraineeEntity trainee = new TraineeEntity(johnUser(), BIRTH_DATE, "1 Main St");
 
-        var request = new UpdateTrainee("John_Smith", null, "Brown", null, "2 New Rd");
+        var request = new UpdateTrainee(null, "Brown", null, "2 New Rd");
         mapper.applyUpdate(request, trainee);
 
-        var expectedTrainee = new Trainee("John_Smith", "John", "Brown", BIRTH_DATE, "2 New Rd", true);
+        var expectedTrainee = new Trainee(null, "John_Smith", "John", "Brown", BIRTH_DATE, "2 New Rd");
         assertEquals(expectedTrainee, mapper.toTrainee(trainee));
     }
 
@@ -93,10 +88,10 @@ class GymMapperTest {
         TrainerEntity trainer = new TrainerEntity(annaUser(), trainingType(TrainingType.FITNESS));
 
         var specialization = Optional.of(trainingType(TrainingType.FITNESS));
-        var request = new UpdateTrainer("Anna_Lee", "Hanna", null, null);
+        var request = new UpdateTrainer("Hanna", null, null);
         mapper.applyUpdate(request, trainer, specialization);
 
-        var expectedTrainer = new Trainer("Anna_Lee", "Hanna", "Lee", TrainingType.FITNESS, false);
+        var expectedTrainer = new Trainer(null, "Anna_Lee", "Hanna", "Lee", TrainingType.FITNESS);
         assertEquals(expectedTrainer, mapper.toTrainer(trainer));
     }
 }

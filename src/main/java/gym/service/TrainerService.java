@@ -1,19 +1,22 @@
 package gym.service;
 
+import gym.data.TraineeEntity;
 import gym.data.TrainerEntity;
 import gym.data.TrainingTypeEntity;
 import gym.data.UserEntity;
-import gym.enums.TrainingType;
 import gym.dto.request.CreateTrainer;
 import gym.dto.request.UpdateTrainer;
-import gym.dto.response.Credentials;
 import gym.dto.response.Trainer;
 import gym.repository.TraineeRepository;
 import gym.repository.TrainerRepository;
 import gym.repository.TrainingTypeRepository;
+import gym.service.exception.AuthenticationException;
 import gym.service.exception.ProfileNotFoundException;
 import gym.service.helper.UserFactory;
 import gym.service.mapper.GymMapper;
+import gym.service.security.AuthenticatedUser;
+import gym.service.security.AuthenticationContext;
+import gym.service.security.UserRole;
 import gym.service.validation.RequestValidator;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
@@ -31,6 +34,7 @@ public class TrainerService {
     private final UserFactory userFactory;
     private final RequestValidator requestValidator;
     private final GymMapper gymMapper;
+    private final AuthenticationContext authenticationContext;
 
     public TrainerService(
             TrainerRepository trainerRepository,
@@ -38,28 +42,30 @@ public class TrainerService {
             TrainingTypeRepository trainingTypeRepository,
             UserFactory userFactory,
             RequestValidator requestValidator,
-            GymMapper gymMapper) {
+            GymMapper gymMapper,
+            AuthenticationContext authenticationContext) {
         this.trainerRepository = trainerRepository;
         this.traineeRepository = traineeRepository;
         this.trainingTypeRepository = trainingTypeRepository;
         this.userFactory = userFactory;
         this.requestValidator = requestValidator;
         this.gymMapper = gymMapper;
+        this.authenticationContext = authenticationContext;
     }
 
     @Transactional
-    public Credentials createTrainer(CreateTrainer request) {
+    public Trainer createTrainer(CreateTrainer request) {
         requestValidator.validateCreateTrainerRequest(request);
 
         TrainingTypeEntity specialization = trainingTypeRepository
                 .findByType(request.specialization())
                 .orElseThrow(() -> new ProfileNotFoundException("Training type '" + request.specialization() + "' not found."));
 
-        UserEntity user = userFactory.createUser(request.firstName(), request.lastName());
-        trainerRepository.save(new TrainerEntity(user, specialization));
+        UserEntity user = userFactory.createUser(request.firstName(), request.lastName(), request.password());
+        var trainerEntity = trainerRepository.save(new TrainerEntity(user, specialization));
 
-        log.info("createTrainer completed, username={}.", user.getUsername());
-        return gymMapper.toCredentials(user);
+        log.info("createTrainer completed, trainerId={}.", trainerEntity.getId());
+        return gymMapper.toTrainer(trainerEntity);
     }
 
     @Transactional(readOnly = true)
@@ -69,44 +75,73 @@ public class TrainerService {
                 .orElse(false);
     }
 
+    @Transactional
+    public void signOut() {
+        TrainerEntity trainer = getTrainer(authenticationContext.getUserByRole(UserRole.TRAINER));
+        authenticationContext.signOut();
+        log.info("signOut completed, trainerId={}.", trainer.getId());
+    }
+
+    @Transactional(readOnly = true)
+    public void signIn(String username, String password) {
+        TrainerEntity trainer = trainerRepository.findByUsername(username)
+                .filter(found -> found.getUser().getPassword().equals(password))
+                .orElseThrow(() -> new AuthenticationException("Invalid trainer username or password."));
+
+        authenticationContext.signIn(new AuthenticatedUser(username, UserRole.TRAINER));
+        log.info("signIn completed, trainerId={}.", trainer.getId());
+    }
+
     @Transactional(readOnly = true)
     public Optional<Trainer> findByUsername(String username) {
+        authenticationContext.requireSignedIn();
+
         return trainerRepository.findByUsername(username).map(gymMapper::toTrainer);
     }
 
     @Transactional
-    public void changePassword(String username, String newPassword) {
+    public void changePassword(String newPassword) {
+        String username = authenticationContext.getUserByRole(UserRole.TRAINER);
         requestValidator.validatePassword(newPassword);
 
-        getTrainer(username).getUser().setPassword(newPassword);
-        log.info("changePassword completed, trainer username={}.", username);
+        TrainerEntity trainer = getTrainer(username);
+        trainer.getUser().setPassword(newPassword);
+        log.info("changePassword completed, trainerId={}.", trainer.getId());
     }
 
     @Transactional
     public Trainer updateTrainer(UpdateTrainer request) {
+        String username = authenticationContext.getUserByRole(UserRole.TRAINER);
         requestValidator.validateUpdateTrainerRequest(request);
 
-        TrainerEntity trainer = getTrainer(request.username());
+        TrainerEntity trainer = getTrainer(username);
         Optional<TrainingTypeEntity> specialization = request.specialization() == null
                 ? Optional.empty()
                 : trainingTypeRepository.findByType(request.specialization());
 
         gymMapper.applyUpdate(request, trainer, specialization);
 
-        log.info("updateTrainer completed, username={}.", request.username());
+        log.info("updateTrainer completed, trainerId={}.", trainer.getId());
         return gymMapper.toTrainer(trainer);
     }
 
     @Transactional
-    public void setActive(String username, boolean isActive) {
-        getTrainer(username).getUser().setActive(isActive);
-        log.info("setActive completed, trainer username={}, isActive={}.", username, isActive);
+    public boolean switchActive() {
+        String username = authenticationContext.getUserByRole(UserRole.TRAINER);
+
+        TrainerEntity trainer = getTrainer(username);
+        boolean isActive = !trainer.getUser().isActive();
+        trainer.getUser().setActive(isActive);
+        log.info("switchActive completed, trainerId={}, isActive={}.", trainer.getId(), isActive);
+        return isActive;
     }
 
     @Transactional(readOnly = true)
     public List<Trainer> getTrainersNotAssignedToTrainee(String traineeUsername) {
+        authenticationContext.requireSignedIn();
+
         if (traineeRepository.findByUsername(traineeUsername).isEmpty()) {
-            throw new ProfileNotFoundException("Trainee '" + traineeUsername + "' not found.");
+            throw new ProfileNotFoundException("Trainee not found.");
         }
 
         return trainerRepository.findNotAssignedToTrainee(traineeUsername).stream()
@@ -116,6 +151,6 @@ public class TrainerService {
 
     private TrainerEntity getTrainer(String username) {
         return trainerRepository.findByUsername(username)
-                .orElseThrow(() -> new ProfileNotFoundException("Trainer '" + username + "' not found."));
+                .orElseThrow(() -> new ProfileNotFoundException("Trainer not found."));
     }
 }

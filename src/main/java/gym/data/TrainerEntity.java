@@ -47,4 +47,19 @@ public class TrainerEntity {
         this.user = user;
         this.specialization = specialization;
     }
+
+    @Override
+    public int hashCode() {
+        return user.hashCode();
+    }
+
+    @Override
+    public boolean equals(Object obj) {
+        if (this == obj) return true;
+        if (!(obj instanceof TrainerEntity other)) {
+            return false;
+        }
+
+        return user.equals(other.getUser());
+    }
 }

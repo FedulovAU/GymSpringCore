@@ -34,11 +34,11 @@ public class TrainingRepository {
                 .createSelectionQuery(
                         "select t from TrainingEntity t "
                                 + "join fetch t.trainee te join fetch te.user teu "
-                                + "join fetch t.trainer tr join fetch tr.user tru "
+                                + "join fetch t.trainer tr join fetch tr.user tru join fetch tr.specialization "
                                 + "join fetch t.trainingType tt "
                                 + "where teu.username = :traineeUsername "
                                 + "and (cast(:from as LocalDateTime) is null or t.trainingDate >= :from) "
-                                + "and (cast(:to as LocalDateTime) is null or t.trainingDate <= :to) "
+                                + "and (cast(:to as LocalDateTime) is null or t.trainingDate < :to) "
                                 + "and (:trainerName is null or tru.firstName = :trainerName or tru.lastName = :trainerName) "
                                 + "and (:trainingType is null or tt.trainingType = :trainingType) ",
                         TrainingEntity.class)
@@ -59,11 +59,11 @@ public class TrainingRepository {
                 .createSelectionQuery(
                         "select t from TrainingEntity t "
                                 + "join fetch t.trainee te join fetch te.user teu "
-                                + "join fetch t.trainer tr join fetch tr.user tru "
+                                + "join fetch t.trainer tr join fetch tr.user tru join fetch tr.specialization "
                                 + "join fetch t.trainingType "
                                 + "where tru.username = :trainerUsername "
                                 + "and (cast(:from as LocalDateTime) is null or t.trainingDate >= :from) "
-                                + "and (cast(:to as LocalDateTime) is null or t.trainingDate <= :to) "
+                                + "and (cast(:to as LocalDateTime) is null or t.trainingDate < :to) "
                                 + "and (:traineeName is null or teu.firstName = :traineeName or teu.lastName = :traineeName) ",
                         TrainingEntity.class)
                 .setParameter("trainerUsername", trainerUsername)
