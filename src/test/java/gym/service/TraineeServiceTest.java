@@ -61,14 +61,6 @@ class TraineeServiceTest {
         return new TraineeEntity(user(), BIRTH_DATE, "1 Main St");
     }
 
-    private void stubFound(TraineeEntity trainee) {
-        when(traineeRepository.findByUsername(USERNAME)).thenReturn(Optional.of(trainee));
-    }
-
-    private void stubMissing() {
-        when(traineeRepository.findByUsername(USERNAME)).thenReturn(Optional.empty());
-    }
-
     @Test
     void createTrainee_savesTraineeWithNewUser_returnsCredentials() {
         when(userFactory.createUser("John", "Smith")).thenReturn(user());
@@ -81,6 +73,7 @@ class TraineeServiceTest {
         verify(traineeRepository).save(argThat(t -> t.getUser().getUsername().equals(USERNAME)
                 && t.getDateOfBirth().equals(BIRTH_DATE)
                 && t.getAddress().equals("1 Main St")));
+        verify(userFactory).createUser("John", "Smith");
     }
 
     @Test
@@ -93,48 +86,54 @@ class TraineeServiceTest {
 
     @Test
     void matchesCredentials_correctPassword_returnsTrue() {
-        stubFound(trainee());
+        when(traineeRepository.findByUsername(USERNAME)).thenReturn(Optional.of(trainee()));
 
         assertTrue(service.matchesCredentials(USERNAME, "secret12345"));
+        verify(traineeRepository).findByUsername(USERNAME);
     }
 
     @Test
     void matchesCredentials_wrongPassword_returnsFalse() {
-        stubFound(trainee());
+        when(traineeRepository.findByUsername(USERNAME)).thenReturn(Optional.of(trainee()));
 
         assertFalse(service.matchesCredentials(USERNAME, "wrong"));
+        verify(traineeRepository).findByUsername(USERNAME);
     }
 
     @Test
     void matchesCredentials_unknownUsername_returnsFalse() {
-        stubMissing();
+        when(traineeRepository.findByUsername(USERNAME)).thenReturn(Optional.empty());
 
         assertFalse(service.matchesCredentials(USERNAME, "secret12345"));
+        verify(traineeRepository).findByUsername(USERNAME);
     }
 
     @Test
     void findByUsername_exists_returnsProfile() {
-        stubFound(trainee());
+        when(traineeRepository.findByUsername(USERNAME)).thenReturn(Optional.of(trainee()));
 
         var expectedTrainee = new Trainee(USERNAME, "John", "Smith", BIRTH_DATE, "1 Main St", true);
         assertEquals(Optional.of(expectedTrainee), service.findByUsername(USERNAME));
+        verify(traineeRepository).findByUsername(USERNAME);
     }
 
     @Test
     void findByUsername_missing_returnsEmpty() {
-        stubMissing();
+        when(traineeRepository.findByUsername(USERNAME)).thenReturn(Optional.empty());
 
         assertTrue(service.findByUsername(USERNAME).isEmpty());
+        verify(traineeRepository).findByUsername(USERNAME);
     }
 
     @Test
     void changePassword_setsNewPasswordOnManagedEntity() {
         TraineeEntity trainee = trainee();
-        stubFound(trainee);
+        when(traineeRepository.findByUsername(USERNAME)).thenReturn(Optional.of(trainee));
 
         service.changePassword(USERNAME, "newPassword1");
 
         assertEquals("newPassword1", trainee.getUser().getPassword());
+        verify(traineeRepository).findByUsername(USERNAME);
     }
 
     @Test
@@ -146,14 +145,15 @@ class TraineeServiceTest {
 
     @Test
     void changePassword_missingTrainee_throwsProfileNotFound() {
-        stubMissing();
+        when(traineeRepository.findByUsername(USERNAME)).thenReturn(Optional.empty());
 
         assertThrows(ProfileNotFoundException.class, () -> service.changePassword(USERNAME, "newPassword1"));
+        verify(traineeRepository).findByUsername(USERNAME);
     }
 
     @Test
     void updateTrainee_partialRequest_changesProvidedFieldsAndKeepsUsername() {
-        stubFound(trainee());
+        when(traineeRepository.findByUsername(USERNAME)).thenReturn(Optional.of(trainee()));
         LocalDate newBirthDate = LocalDate.of(1991, 1, 1);
 
         var request = new UpdateTrainee(USERNAME, null, "Brown", newBirthDate, null);
@@ -161,42 +161,47 @@ class TraineeServiceTest {
 
         var expectedTrainee = new Trainee(USERNAME, "John", "Brown", newBirthDate, "1 Main St", true);
         assertEquals(expectedTrainee, result);
+        verify(traineeRepository).findByUsername(USERNAME);
     }
 
     @Test
     void updateTrainee_missingTrainee_throwsProfileNotFound() {
-        stubMissing();
+        when(traineeRepository.findByUsername(USERNAME)).thenReturn(Optional.empty());
 
         var request = new UpdateTrainee(USERNAME, "Jack", null, null, null);
         assertThrows(ProfileNotFoundException.class, () -> service.updateTrainee(request));
+        verify(traineeRepository).findByUsername(USERNAME);
     }
 
     @Test
     void setActive_false_deactivatesUser() {
         TraineeEntity trainee = trainee();
-        stubFound(trainee);
+        when(traineeRepository.findByUsername(USERNAME)).thenReturn(Optional.of(trainee));
 
         service.setActive(USERNAME, false);
 
         assertFalse(trainee.getUser().isActive());
+        verify(traineeRepository).findByUsername(USERNAME);
     }
 
     @Test
     void deleteByUsername_exists_deletesTrainee() {
         TraineeEntity trainee = trainee();
-        stubFound(trainee);
+        when(traineeRepository.findByUsername(USERNAME)).thenReturn(Optional.of(trainee));
 
         service.deleteByUsername(USERNAME);
 
         verify(traineeRepository).delete(trainee);
+        verify(traineeRepository).findByUsername(USERNAME);
     }
 
     @Test
     void deleteByUsername_missing_throwsAndDeletesNothing() {
-        stubMissing();
+        when(traineeRepository.findByUsername(USERNAME)).thenReturn(Optional.empty());
 
         assertThrows(ProfileNotFoundException.class, () -> service.deleteByUsername(USERNAME));
 
         verify(traineeRepository, never()).delete(any());
+        verify(traineeRepository).findByUsername(USERNAME);
     }
 }

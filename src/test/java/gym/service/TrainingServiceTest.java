@@ -110,6 +110,8 @@ class TrainingServiceTest {
                 && t.getTrainer() == trainer
                 && t.getTrainingType() == trainer.getSpecialization()
                 && t.getTrainingDurationMinutes() == 60));
+        verify(traineeRepository).findByUsername(TRAINEE);
+        verify(trainerRepository).findByUsername(TRAINER);
     }
 
     @Test
@@ -121,6 +123,9 @@ class TrainingServiceTest {
         assertThrows(CannotScheduleTrainingException.class, () -> service.addTraining(request()));
 
         verify(trainingRepository, never()).save(any());
+        verify(traineeRepository).findByUsername(TRAINEE);
+        verify(trainerRepository).findByUsername(TRAINER);
+        verify(trainingRepository).existsOverlappingForTrainer(trainer, START, END);
     }
 
     @Test
@@ -132,6 +137,9 @@ class TrainingServiceTest {
         assertThrows(CannotScheduleTrainingException.class, () -> service.addTraining(request()));
 
         verify(trainingRepository, never()).save(any());
+        verify(traineeRepository).findByUsername(TRAINEE);
+        verify(trainerRepository).findByUsername(TRAINER);
+        verify(trainingRepository).existsOverlappingForTrainee(trainee, START, END);
     }
 
     @Test
@@ -142,6 +150,8 @@ class TrainingServiceTest {
         assertThrows(CannotScheduleTrainingException.class, () -> service.addTraining(request()));
 
         verify(trainingRepository, never()).save(any());
+        verify(traineeRepository).findByUsername(TRAINEE);
+        verify(trainerRepository).findByUsername(TRAINER);
     }
 
     @Test
@@ -151,6 +161,7 @@ class TrainingServiceTest {
         assertThrows(ProfileNotFoundException.class, () -> service.addTraining(request()));
 
         verify(trainingRepository, never()).save(any());
+        verify(traineeRepository).findByUsername(TRAINEE);
     }
 
     @Test
@@ -190,5 +201,6 @@ class TrainingServiceTest {
 
         var expectedTraining = new Training(TRAINEE, TRAINER, "Morning", TrainingType.CROSSFIT, START, ONE_HOUR);
         assertEquals(List.of(expectedTraining), result);
+        verify(trainingRepository).findTrainerTrainings(TRAINER, null, null, "John");
     }
 }

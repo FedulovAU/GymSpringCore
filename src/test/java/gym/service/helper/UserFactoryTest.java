@@ -41,6 +41,7 @@ class UserFactoryTest {
         verify(userRepository).findMaxUsernameSuffix("John_Smith");
         var expectedUser = new UserEntity("John", "Smith", "secret12345", true, "John_Smith", "John_Smith", 0);
         assertThat(user).usingRecursiveComparison().isEqualTo(expectedUser);
+        verify(passwordGenerator).generate();
     }
 
     @Test
@@ -51,6 +52,8 @@ class UserFactoryTest {
 
         var expectedUser = new UserEntity("John", "Smith", "secret12345", true, "John_Smith_2", "John_Smith", 2);
         assertThat(user).usingRecursiveComparison().isEqualTo(expectedUser);
+        verify(passwordGenerator).generate();
+        verify(userRepository).findMaxUsernameSuffix("John_Smith");
     }
 
     @Test
@@ -61,5 +64,7 @@ class UserFactoryTest {
 
         var expectedUser = new UserEntity("John", "Smith", "secret12345", true, "John_Smith_1", "John_Smith", 1);
         assertThat(user).usingRecursiveComparison().isEqualTo(expectedUser);
+        verify(passwordGenerator).generate();
+        verify(userRepository).findMaxUsernameSuffix("John_Smith");
     }
 }
