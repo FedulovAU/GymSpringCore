@@ -1,4 +1,4 @@
-package gym.data.entity;
+package gym.data;
 
 import jakarta.persistence.CascadeType;
 import jakarta.persistence.Column;
@@ -10,6 +10,7 @@ import jakarta.persistence.Id;
 import jakarta.persistence.JoinColumn;
 import jakarta.persistence.OneToOne;
 import jakarta.persistence.Table;
+import jakarta.persistence.Version;
 import lombok.AccessLevel;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
@@ -30,7 +31,11 @@ public class TraineeEntity {
     @Setter(AccessLevel.NONE)
     private Long id;
 
-    @OneToOne(optional = false, cascade = CascadeType.ALL)
+    @Version
+    @Setter(AccessLevel.NONE)
+    private long version;
+
+    @OneToOne(fetch = FetchType.LAZY, optional = false, cascade = CascadeType.ALL)
     @JoinColumn(name = "user_id", nullable = false, unique = true, updatable = false)
     @OnDelete(action = OnDeleteAction.CASCADE)
     @Setter(AccessLevel.NONE)

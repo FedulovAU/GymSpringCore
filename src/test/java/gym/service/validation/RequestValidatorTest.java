@@ -1,20 +1,22 @@
 package gym.service.validation;
 
-import gym.dto.enums.TrainingType;
+import gym.enums.TrainingType;
+import gym.dto.request.AddTraining;
 import gym.dto.request.CreateTrainee;
 import gym.dto.request.CreateTrainer;
-import gym.dto.request.ScheduleTraining;
 import gym.dto.request.UpdateTrainee;
 import gym.dto.request.UpdateTrainer;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.MethodSource;
-import org.springframework.beans.factory.annotation.Autowired;
+import org.junit.jupiter.params.provider.NullSource;
+import org.junit.jupiter.params.provider.ValueSource;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.context.annotation.Import;
 import org.springframework.context.annotation.PropertySource;
+import org.springframework.test.context.TestConstructor;
 import org.springframework.test.context.junit.jupiter.SpringJUnitConfig;
 
 import java.time.Duration;
@@ -27,6 +29,7 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.params.provider.Arguments.arguments;
 
 @SpringJUnitConfig(RequestValidatorTest.Config.class)
+@TestConstructor(autowireMode = TestConstructor.AutowireMode.ALL)
 class RequestValidatorTest {
 
     @Configuration
@@ -39,44 +42,49 @@ class RequestValidatorTest {
     private static final LocalDateTime NEXT_WEEK = LocalDate.now().plusWeeks(1).atTime(10, 0);
     private static final Duration ONE_HOUR = Duration.ofHours(1);
 
-    @Autowired
-    private RequestValidator validator;
+    private final RequestValidator validator;
+    private final int minTraineeAge;
+    private final int scheduleGapMinutesMin;
+    private final int trainingDurationMinutesMin;
 
-    @Value("${minTraineeAge}")
-    private int minTraineeAge;
-
-    @Value("${scheduleGapMinutesMin}")
-    private int scheduleGapMinutesMin;
-
-    @Value("${trainingDurationMinutesMin}")
-    private int trainingDurationMinutesMin;
-
-
-    // ---------- CreateTrainee ----------
+    RequestValidatorTest(
+            RequestValidator validator,
+            @Value("${minTraineeAge}") int minTraineeAge,
+            @Value("${scheduleGapMinutesMin}") int scheduleGapMinutesMin,
+            @Value("${trainingDurationMinutesMin}") int trainingDurationMinutesMin) {
+        this.validator = validator;
+        this.minTraineeAge = minTraineeAge;
+        this.scheduleGapMinutesMin = scheduleGapMinutesMin;
+        this.trainingDurationMinutesMin = trainingDurationMinutesMin;
+    }
 
     @Test
     void validateCreateTraineeRequest_valid_passes() {
-        assertDoesNotThrow(() -> validator.validateCreateTraineeRequest(new CreateTrainee("José", "Smith", BIRTH_DATE)));
+        var request = new CreateTrainee("José", "Smith", BIRTH_DATE, "1 Main St");
+        assertDoesNotThrow(() -> validator.validateCreateTraineeRequest(request));
+    }
+
+    @Test
+    void validateCreateTraineeRequest_optionalFieldsMissing_passes() {
+        var request = new CreateTrainee("John", "Smith", null, null);
+        assertDoesNotThrow(() -> validator.validateCreateTraineeRequest(request));
     }
 
     @Test
     void validateCreateTraineeRequest_exactlyMinAge_passes() {
         var birthDate = LocalDate.now().minusYears(minTraineeAge);
-        assertDoesNotThrow(() -> validator.validateCreateTraineeRequest(new CreateTrainee("John", "Smith", birthDate)));
-    }
-
-    @Test
-    void validateCreateTraineeRequest_youngerThanMinAge_throwsIllegalArgument() {
-        var birthDate = LocalDate.now().minusYears(minTraineeAge).plusDays(1);
-        assertThrows(IllegalArgumentException.class,
-                () -> validator.validateCreateTraineeRequest(new CreateTrainee("John", "Smith", birthDate)));
+        var request = new CreateTrainee("John", "Smith", birthDate, null);
+        assertDoesNotThrow(() -> validator.validateCreateTraineeRequest(request));
     }
 
     static Stream<Arguments> invalidCreateTrainee() {
+        var tooYoungBirthDate = LocalDate.now().minusYears(5).plusDays(1);
         return Stream.of(
-                arguments("first name with digit", new CreateTrainee("John1", "Smith", BIRTH_DATE)),
-                arguments("last name with underscore", new CreateTrainee("John", "Smith_2", BIRTH_DATE)),
-                arguments("future birth date", new CreateTrainee("John", "Smith", TOMORROW)));
+                arguments("missing first name", new CreateTrainee(null, "Smith", BIRTH_DATE, null)),
+                arguments("first name with digit", new CreateTrainee("John1", "Smith", BIRTH_DATE, null)),
+                arguments("last name with underscore", new CreateTrainee("John", "Smith_2", BIRTH_DATE, null)),
+                arguments("younger than min age", new CreateTrainee("John", "Smith", tooYoungBirthDate, null)),
+                arguments("future birth date", new CreateTrainee("John", "Smith", TOMORROW, null)));
     }
 
     @ParameterizedTest(name = "{0}")
@@ -85,26 +93,17 @@ class RequestValidatorTest {
         assertThrows(IllegalArgumentException.class, () -> validator.validateCreateTraineeRequest(request));
     }
 
-
-    // ---------- UpdateTrainee ----------
-
     @Test
-    void validateUpdateTraineeRequest_onlyIdProvided_passes() {
-        assertDoesNotThrow(() -> validator.validateUpdateTraineeRequest(new UpdateTrainee(1L, null, null, null)));
-    }
-
-    @Test
-    void validateUpdateTraineeRequest_youngerThanMinAge_throwsIllegalArgument() {
-        var birthDate = LocalDate.now().minusYears(minTraineeAge).plusDays(1);
-        assertThrows(IllegalArgumentException.class,
-                () -> validator.validateUpdateTraineeRequest(new UpdateTrainee(1L, null, null, birthDate)));
+    void validateUpdateTraineeRequest_onlyUsernameProvided_passes() {
+        var request = new UpdateTrainee("John_Smith", null, null, null, null);
+        assertDoesNotThrow(() -> validator.validateUpdateTraineeRequest(request));
     }
 
     static Stream<Arguments> invalidUpdateTrainee() {
         return Stream.of(
-                arguments("first name with digit", new UpdateTrainee(1L, "John1", null, null)),
-                arguments("blank last name", new UpdateTrainee(1L, null, " ", null)),
-                arguments("future birth date", new UpdateTrainee(1L, null, null, TOMORROW)));
+                arguments("first name with digit", new UpdateTrainee("John_Smith", "John1", null, null, null)),
+                arguments("blank last name", new UpdateTrainee("John_Smith", null, " ", null, null)),
+                arguments("future birth date", new UpdateTrainee("John_Smith", null, null, TOMORROW, null)));
     }
 
     @ParameterizedTest(name = "{0}")
@@ -113,18 +112,17 @@ class RequestValidatorTest {
         assertThrows(IllegalArgumentException.class, () -> validator.validateUpdateTraineeRequest(request));
     }
 
-
-    // ---------- CreateTrainer ----------
-
     @Test
     void validateCreateTrainerRequest_valid_passes() {
-        assertDoesNotThrow(() -> validator.validateCreateTrainerRequest(new CreateTrainer("Anna", "Lee", TrainingType.CROSSFIT)));
+        var request = new CreateTrainer("Anna", "Lee", TrainingType.CROSSFIT);
+        assertDoesNotThrow(() -> validator.validateCreateTrainerRequest(request));
     }
 
     static Stream<Arguments> invalidCreateTrainer() {
         return Stream.of(
                 arguments("first name with digit", new CreateTrainer("Anna1", "Lee", TrainingType.CROSSFIT)),
-                arguments("last name with space", new CreateTrainer("Anna", "Le e", TrainingType.CROSSFIT)));
+                arguments("missing last name", new CreateTrainer("Anna", null, TrainingType.CROSSFIT)),
+                arguments("missing specialization", new CreateTrainer("Anna", "Lee", null)));
     }
 
     @ParameterizedTest(name = "{0}")
@@ -133,66 +131,62 @@ class RequestValidatorTest {
         assertThrows(IllegalArgumentException.class, () -> validator.validateCreateTrainerRequest(request));
     }
 
-
-    // ---------- UpdateTrainer ----------
+    @Test
+    void validateUpdateTrainerRequest_onlyUsernameProvided_passes() {
+        var request = new UpdateTrainer("Anna_Lee", null, null, null);
+        assertDoesNotThrow(() -> validator.validateUpdateTrainerRequest(request));
+    }
 
     @Test
-    void validateUpdateTrainerRequest_onlyIdProvided_passes() {
-        assertDoesNotThrow(() -> validator.validateUpdateTrainerRequest(new UpdateTrainer(1L, null, null, null)));
-    }
-
-    static Stream<Arguments> invalidUpdateTrainer() {
-        return Stream.of(
-                arguments("first name with digit", new UpdateTrainer(1L, "Anna1", null, null)),
-                arguments("blank last name", new UpdateTrainer(1L, null, " ", null)));
-    }
-
-    @ParameterizedTest(name = "{0}")
-    @MethodSource("invalidUpdateTrainer")
-    void validateUpdateTrainerRequest_invalid_throwsIllegalArgument(String rule, UpdateTrainer request) {
+    void validateUpdateTrainerRequest_invalidName_throwsIllegalArgument() {
+        var request = new UpdateTrainer("Anna_Lee", "Anna1", null, null);
         assertThrows(IllegalArgumentException.class, () -> validator.validateUpdateTrainerRequest(request));
     }
 
-
-    // ---------- ScheduleTraining ----------
-
     @Test
-    void validateScheduleTrainingRequest_valid_passes() {
-        assertDoesNotThrow(() -> validator.validateScheduleTrainingRequest(
-                new ScheduleTraining(1L, 2L, "Morning", NEXT_WEEK, ONE_HOUR)));
+    void validatePassword_nonBlank_passes() {
+        assertDoesNotThrow(() -> validator.validatePassword("secret"));
+    }
+
+    @ParameterizedTest
+    @NullSource
+    @ValueSource(strings = {"", "   "})
+    void validatePassword_blank_throwsIllegalArgument(String password) {
+        assertThrows(IllegalArgumentException.class, () -> validator.validatePassword(password));
     }
 
     @Test
-    void validateScheduleTrainingRequest_withinScheduleGap_throwsIllegalArgument() {
-        var date = LocalDateTime.now().plusMinutes(scheduleGapMinutesMin - 1);
-        assertThrows(IllegalArgumentException.class, () -> validator.validateScheduleTrainingRequest(
-                new ScheduleTraining(1L, 2L, "Morning", date, ONE_HOUR)));
+    void validateAddTrainingRequest_valid_passes() {
+        var request = training("Morning", NEXT_WEEK, ONE_HOUR);
+        assertDoesNotThrow(() -> validator.validateAddTrainingRequest(request));
     }
 
     @Test
-    void validateScheduleTrainingRequest_exactlyMinDuration_passes() {
+    void validateAddTrainingRequest_exactlyMinDuration_passes() {
         var duration = Duration.ofMinutes(trainingDurationMinutesMin);
-        assertDoesNotThrow(() -> validator.validateScheduleTrainingRequest(
-                new ScheduleTraining(1L, 2L, "Morning", NEXT_WEEK, duration)));
+        var request = training("Morning", NEXT_WEEK, duration);
+        assertDoesNotThrow(() -> validator.validateAddTrainingRequest(request));
     }
 
-    @Test
-    void validateScheduleTrainingRequest_shorterThanMinDuration_throwsIllegalArgument() {
-        var duration = Duration.ofMinutes(trainingDurationMinutesMin - 1);
-        assertThrows(IllegalArgumentException.class, () -> validator.validateScheduleTrainingRequest(
-                new ScheduleTraining(1L, 2L, "Morning", NEXT_WEEK, duration)));
-    }
-
-    static Stream<Arguments> invalidScheduleTraining() {
+    static Stream<Arguments> invalidAddTraining() {
+        var yesterday = LocalDateTime.now().minusDays(1);
+        var inOneMinute = LocalDateTime.now().plusMinutes(1);
         return Stream.of(
-                arguments("date in the past", new ScheduleTraining(1L, 2L, "Morning", LocalDateTime.now().minusDays(1), ONE_HOUR)),
-                arguments("null duration", new ScheduleTraining(1L, 2L, "Morning", NEXT_WEEK, null)),
-                arguments("negative duration", new ScheduleTraining(1L, 2L, "Morning", NEXT_WEEK, ONE_HOUR.negated())));
+                arguments("blank name", training(" ", NEXT_WEEK, ONE_HOUR)),
+                arguments("date in the past", training("Morning", yesterday, ONE_HOUR)),
+                arguments("within schedule gap", training("Morning", inOneMinute, ONE_HOUR)),
+                arguments("shorter than min duration", training("Morning", NEXT_WEEK, Duration.ofMinutes(1))),
+                arguments("null duration", training("Morning", NEXT_WEEK, null)),
+                arguments("negative duration", training("Morning", NEXT_WEEK, ONE_HOUR.negated())));
     }
 
     @ParameterizedTest(name = "{0}")
-    @MethodSource("invalidScheduleTraining")
-    void validateScheduleTrainingRequest_invalid_throwsIllegalArgument(String rule, ScheduleTraining request) {
-        assertThrows(IllegalArgumentException.class, () -> validator.validateScheduleTrainingRequest(request));
+    @MethodSource("invalidAddTraining")
+    void validateAddTrainingRequest_invalid_throwsIllegalArgument(String rule, AddTraining request) {
+        assertThrows(IllegalArgumentException.class, () -> validator.validateAddTrainingRequest(request));
+    }
+
+    private static AddTraining training(String name, LocalDateTime date, Duration duration) {
+        return new AddTraining("John_Smith", "Anna_Lee", name, date, duration);
     }
 }

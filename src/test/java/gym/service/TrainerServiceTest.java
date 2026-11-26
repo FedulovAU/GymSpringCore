@@ -1,17 +1,19 @@
 package gym.service;
 
-import gym.data.entity.TrainerEntity;
-import gym.data.entity.UserEntity;
-import gym.data.entity.TrainingTypeEntity;
-import gym.data.storage.exception.ItemNotFoundException;
-import gym.dto.enums.TrainingType;
+import gym.data.TraineeEntity;
+import gym.data.TrainerEntity;
+import gym.data.TrainingTypeEntity;
+import gym.data.UserEntity;
+import gym.enums.TrainingType;
 import gym.dto.request.CreateTrainer;
 import gym.dto.request.UpdateTrainer;
+import gym.dto.response.Credentials;
 import gym.dto.response.Trainer;
-import gym.repository.trainee.TraineeRepository;
-import gym.repository.trainer.TrainerRepository;
-import gym.service.helper.PasswordGenerator;
-import gym.service.helper.UsernameGenerator;
+import gym.repository.TraineeRepository;
+import gym.repository.TrainerRepository;
+import gym.repository.TrainingTypeRepository;
+import gym.service.exception.ProfileNotFoundException;
+import gym.service.helper.UserFactory;
 import gym.service.mapper.GymMapper;
 import gym.service.validation.RequestValidator;
 import org.junit.jupiter.api.BeforeEach;
@@ -22,171 +24,186 @@ import org.mockito.junit.jupiter.MockitoExtension;
 
 import java.util.List;
 import java.util.Optional;
-import java.util.function.UnaryOperator;
 
-import static org.junit.jupiter.api.Assertions.*;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.argThat;
-import static org.mockito.Mockito.*;
+import static org.mockito.Mockito.lenient;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.verifyNoInteractions;
+import static org.mockito.Mockito.when;
 
 @ExtendWith(MockitoExtension.class)
 class TrainerServiceTest {
+
+    private static final String USERNAME = "Anna_Lee";
+    private static final String TRAINEE_USERNAME = "John_Smith";
 
     @Mock
     private TrainerRepository trainerRepository;
     @Mock
     private TraineeRepository traineeRepository;
     @Mock
-    private PasswordGenerator passwordGenerator;
+    private TrainingTypeRepository trainingTypeRepository;
+    @Mock
+    private UserFactory userFactory;
 
     private TrainerService service;
 
     @BeforeEach
     void setUp() {
-        service = new TrainerService();
-        service.setGymMapper(new GymMapper());
-        service.setRequestValidator(new RequestValidator());
-        service.setTrainerRepository(trainerRepository);
-        service.setTraineeRepository(traineeRepository);
-        service.setPasswordGenerator(passwordGenerator);
-        service.setUsernameGenerator(new UsernameGenerator());
+        service = new TrainerService(
+                trainerRepository,
+                traineeRepository,
+                trainingTypeRepository,
+                userFactory,
+                new RequestValidator(),
+                new GymMapper());
     }
 
-    private static TrainerEntity trainer(long id) {
-        return new TrainerEntity(
-                id,
-                new UserEntity("Anna", "Lee", "Anna_Lee", 0L, "secret12345", true),
-                TrainingTypeEntity.of(TrainingTypeEntity.TrainingType.CROSSFIT));
+    private static TrainingTypeEntity trainingType(TrainingType type) {
+        TrainingTypeEntity entity = mock(TrainingTypeEntity.class);
+        lenient().when(entity.getTrainingType()).thenReturn(type);
+        return entity;
     }
 
-    private static Trainer trainerDto(long id) {
-        return new Trainer(id, "Anna", "Lee", "Anna_Lee", TrainingType.CROSSFIT);
+    private static UserEntity user() {
+        return new UserEntity("Anna", "Lee", "secret12345", true, USERNAME, USERNAME, 0);
     }
 
-    private static CreateTrainer createRequest() {
-        return new CreateTrainer("Anna", "Lee", TrainingType.CROSSFIT);
+    private static TrainerEntity trainer() {
+        return new TrainerEntity(user(), trainingType(TrainingType.FITNESS));
     }
 
-    private void stubCreate(Optional<Long> traineeSuffix, Optional<Long> trainerSuffix, long assignedId) {
-        when(passwordGenerator.generate()).thenReturn("secret12345");
-        when(traineeRepository.getLastUsernameSuffix("Anna", "Lee")).thenReturn(traineeSuffix);
-        when(trainerRepository.getLastUsernameSuffix("Anna", "Lee")).thenReturn(trainerSuffix);
-        when(trainerRepository.add(any())).thenAnswer(inv -> inv.getArgument(0, TrainerEntity.class).withId(assignedId));
+    private void stubFound(TrainerEntity trainer) {
+        when(trainerRepository.findByUsername(USERNAME)).thenReturn(Optional.of(trainer));
     }
 
-    private void verifyCreateLookups() {
-        verify(passwordGenerator).generate();
-        verify(traineeRepository).getLastUsernameSuffix("Anna", "Lee");
-        verify(trainerRepository).getLastUsernameSuffix("Anna", "Lee");
-    }
-
-
-    @Test
-    void createTrainer_newName_addsTrainerWithBaseUsername() {
-        stubCreate(Optional.empty(), Optional.empty(), 1L);
-
-        Trainer result = service.createTrainer(createRequest());
-
-        verifyCreateLookups();
-        verify(trainerRepository).add(argThat(t ->
-                t.getId() == null
-                && t.getSpecialization().getTrainingType() == TrainingTypeEntity.TrainingType.CROSSFIT
-                && t.getUser().getUserName().equals("Anna_Lee")
-                && t.getUser().getUserNameSuffix() == 0L
-                && t.getUser().getFirstName().equals("Anna")
-                && t.getUser().getLastName().equals("Lee")
-                && t.getUser().getPassword().equals("secret12345")
-                && t.getUser().isActive()));
-        assertEquals(trainerDto(1L), result);
+    private void stubMissing() {
+        when(trainerRepository.findByUsername(USERNAME)).thenReturn(Optional.empty());
     }
 
     @Test
-    void createTrainer_traineeSuffixIsHigher_usesNextAfterIt() {
-        stubCreate(Optional.of(2L), Optional.of(0L), 3L);
+    void createTrainer_savesTrainerWithSpecialization_returnsCredentials() {
+        TrainingTypeEntity crossfit = trainingType(TrainingType.CROSSFIT);
+        when(trainingTypeRepository.findByType(TrainingType.CROSSFIT)).thenReturn(Optional.of(crossfit));
+        when(userFactory.createUser("Anna", "Lee")).thenReturn(user());
 
-        Trainer result = service.createTrainer(createRequest());
+        var request = new CreateTrainer("Anna", "Lee", TrainingType.CROSSFIT);
+        Credentials result = service.createTrainer(request);
 
-        verifyCreateLookups();
-        verify(trainerRepository).add(argThat(t -> t.getUser().getUserName().equals("Anna_Lee_3")
-                && t.getUser().getUserNameSuffix() == 3L));
-        assertEquals(new Trainer(3L, "Anna", "Lee", "Anna_Lee_3", TrainingType.CROSSFIT), result);
+        var expectedCredentials = new Credentials(USERNAME, "secret12345");
+        assertEquals(expectedCredentials, result);
+        verify(trainerRepository).save(argThat(t -> t.getUser().getUsername().equals(USERNAME)
+                && t.getSpecialization() == crossfit));
     }
 
     @Test
-    void createTrainer_trainerSuffixIsHigher_usesNextAfterIt() {
-        stubCreate(Optional.of(0L), Optional.of(2L), 3L);
+    void createTrainer_missingSpecialization_throwsBeforeTouchingDatabase() {
+        var request = new CreateTrainer("Anna", "Lee", null);
+        assertThrows(IllegalArgumentException.class, () -> service.createTrainer(request));
 
-        Trainer result = service.createTrainer(createRequest());
-
-        verifyCreateLookups();
-        verify(trainerRepository).add(argThat(t -> t.getUser().getUserName().equals("Anna_Lee_3")
-                && t.getUser().getUserNameSuffix() == 3L));
-        assertEquals(new Trainer(3L, "Anna", "Lee", "Anna_Lee_3", TrainingType.CROSSFIT), result);
+        verifyNoInteractions(trainerRepository, trainingTypeRepository, userFactory);
     }
 
     @Test
-    void createTrainer_invalidLastName_throwsIllegalArgument() {
-        assertThrows(IllegalArgumentException.class,
-                () -> service.createTrainer(new CreateTrainer("Anna", "Lee1", TrainingType.CROSSFIT)));
+    void matchesCredentials_correctPassword_returnsTrue() {
+        stubFound(trainer());
 
-        verifyNoInteractions(trainerRepository, traineeRepository, passwordGenerator);
-    }
-
-
-    @Test
-    void updateTrainer_partialRequest_updatesUserAndTrainerFields() {
-        when(trainerRepository.update(eq(1L), any()))
-                .thenAnswer(inv -> inv.getArgument(1, UnaryOperator.class).apply(trainer(1L)));
-
-        Trainer result = service.updateTrainer(
-                new UpdateTrainer(1L, "Hanna", null, TrainingType.FITNESS));
-
-        verify(trainerRepository).update(eq(1L), any());
-        // The user name stays the same when the first name changes.
-        assertEquals(new Trainer(1L, "Hanna", "Lee", "Anna_Lee", TrainingType.FITNESS), result);
+        assertTrue(service.matchesCredentials(USERNAME, "secret12345"));
     }
 
     @Test
-    void updateTrainer_invalidFirstName_throwsIllegalArgument() {
-        assertThrows(IllegalArgumentException.class,
-                () -> service.updateTrainer(new UpdateTrainer(1L, "Anna1", null, null)));
+    void matchesCredentials_unknownUsername_returnsFalse() {
+        stubMissing();
 
-        verifyNoInteractions(trainerRepository);
+        assertFalse(service.matchesCredentials(USERNAME, "secret12345"));
     }
 
     @Test
-    void updateTrainer_trainerNotFound_propagates() {
-        when(trainerRepository.update(eq(1L), any())).thenThrow(new ItemNotFoundException("TrainerEntity", "1"));
+    void findByUsername_exists_returnsProfile() {
+        stubFound(trainer());
 
-        assertThrows(ItemNotFoundException.class,
-                () -> service.updateTrainer(new UpdateTrainer(1L, "Anna", null, null)));
-
-        verify(trainerRepository).update(eq(1L), any());
-    }
-
-
-    @Test
-    void findTrainerById_exists_returnsTrainer() {
-        when(trainerRepository.getById(1L)).thenReturn(Optional.of(trainer(1L)));
-
-        assertEquals(Optional.of(trainerDto(1L)), service.findTrainerById(1L));
-        verify(trainerRepository).getById(1L);
+        var expectedTrainer = new Trainer(USERNAME, "Anna", "Lee", TrainingType.FITNESS, true);
+        assertEquals(Optional.of(expectedTrainer), service.findByUsername(USERNAME));
     }
 
     @Test
-    void findTrainerById_missing_returnsEmpty() {
-        when(trainerRepository.getById(1L)).thenReturn(Optional.empty());
+    void changePassword_setsNewPasswordOnManagedEntity() {
+        TrainerEntity trainer = trainer();
+        stubFound(trainer);
 
-        assertTrue(service.findTrainerById(1L).isEmpty());
-        verify(trainerRepository).getById(1L);
+        service.changePassword(USERNAME, "newPassword1");
+
+        assertEquals("newPassword1", trainer.getUser().getPassword());
     }
 
+    @Test
+    void updateTrainer_withSpecialization_changesNamesAndSpecialization() {
+        stubFound(trainer());
+        TrainingTypeEntity crossfit = trainingType(TrainingType.CROSSFIT);
+        when(trainingTypeRepository.findByType(TrainingType.CROSSFIT)).thenReturn(Optional.of(crossfit));
+
+        var request = new UpdateTrainer(USERNAME, "Hanna", null, TrainingType.CROSSFIT);
+        Trainer result = service.updateTrainer(request);
+
+        var expectedTrainer = new Trainer(USERNAME, "Hanna", "Lee", TrainingType.CROSSFIT, true);
+        assertEquals(expectedTrainer, result);
+    }
 
     @Test
-    void getAll_mapsAllTrainers() {
-        when(trainerRepository.getAll()).thenReturn(List.of(trainer(1L), trainer(2L)));
+    void updateTrainer_withoutSpecialization_keepsSpecialization() {
+        stubFound(trainer());
 
-        assertEquals(List.of(trainerDto(1L), trainerDto(2L)), service.getAll());
-        verify(trainerRepository).getAll();
+        var request = new UpdateTrainer(USERNAME, null, "Brown", null);
+        Trainer result = service.updateTrainer(request);
+
+        var expectedTrainer = new Trainer(USERNAME, "Anna", "Brown", TrainingType.FITNESS, true);
+        assertEquals(expectedTrainer, result);
+        verifyNoInteractions(trainingTypeRepository);
+    }
+
+    @Test
+    void updateTrainer_missingTrainer_throwsProfileNotFound() {
+        stubMissing();
+
+        var request = new UpdateTrainer(USERNAME, "Hanna", null, null);
+        assertThrows(ProfileNotFoundException.class, () -> service.updateTrainer(request));
+    }
+
+    @Test
+    void setActive_false_deactivatesUser() {
+        TrainerEntity trainer = trainer();
+        stubFound(trainer);
+
+        service.setActive(USERNAME, false);
+
+        assertFalse(trainer.getUser().isActive());
+    }
+
+    @Test
+    void getTrainersNotAssignedToTrainee_traineeExists_returnsMappedTrainers() {
+        TraineeEntity trainee = mock(TraineeEntity.class);
+        TrainerEntity trainer = trainer();
+        when(traineeRepository.findByUsername(TRAINEE_USERNAME)).thenReturn(Optional.of(trainee));
+        when(trainerRepository.findNotAssignedToTrainee(TRAINEE_USERNAME)).thenReturn(List.of(trainer));
+
+        var expectedTrainer = new Trainer(USERNAME, "Anna", "Lee", TrainingType.FITNESS, true);
+        assertEquals(List.of(expectedTrainer), service.getTrainersNotAssignedToTrainee(TRAINEE_USERNAME));
+    }
+
+    @Test
+    void getTrainersNotAssignedToTrainee_unknownTrainee_throwsProfileNotFound() {
+        when(traineeRepository.findByUsername(TRAINEE_USERNAME)).thenReturn(Optional.empty());
+
+        assertThrows(ProfileNotFoundException.class,
+                () -> service.getTrainersNotAssignedToTrainee(TRAINEE_USERNAME));
+
+        verify(trainerRepository, never()).findNotAssignedToTrainee(any());
     }
 }

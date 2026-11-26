@@ -1,4 +1,4 @@
-package gym.data.entity;
+package gym.data;
 
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;

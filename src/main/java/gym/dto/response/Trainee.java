@@ -3,9 +3,10 @@ package gym.dto.response;
 import java.time.LocalDate;
 
 public record Trainee(
-        Long id,
+        String username,
         String firstName,
         String lastName,
-        String userName,
-        LocalDate birthDate
-) {}
+        LocalDate dateOfBirth,
+        String address,
+        boolean isActive) {
+}

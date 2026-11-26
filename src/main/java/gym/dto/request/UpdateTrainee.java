@@ -3,8 +3,9 @@ package gym.dto.request;
 import java.time.LocalDate;
 
 public record UpdateTrainee(
-        long id,
+        String username,
         String firstName,
         String lastName,
-        LocalDate birthDate) {
+        LocalDate dateOfBirth,
+        String address) {
 }

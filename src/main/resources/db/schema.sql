@@ -7,6 +7,7 @@ CREATE TABLE users (
     username       VARCHAR(255) NOT NULL,
     password       VARCHAR(255) NOT NULL,
     is_active      BOOLEAN      NOT NULL DEFAULT TRUE,
+    version        BIGINT       NOT NULL DEFAULT 0,
     CONSTRAINT uq_users_username     UNIQUE (username),
     CONSTRAINT uq_users_base_suffix  UNIQUE (base_username, username_suffix)
 );
@@ -27,6 +28,7 @@ CREATE TABLE trainee (
     date_of_birth  DATE,
     address        VARCHAR(255),
     user_id        BIGINT       NOT NULL,
+    version        BIGINT       NOT NULL DEFAULT 0,
     CONSTRAINT uq_trainee_user UNIQUE (user_id),
     CONSTRAINT fk_trainee_user FOREIGN KEY (user_id) REFERENCES users (id) ON DELETE CASCADE
 );
@@ -35,6 +37,7 @@ CREATE TABLE trainer (
     id                 BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
     specialization_id  BIGINT NOT NULL,
     user_id            BIGINT NOT NULL,
+    version            BIGINT NOT NULL DEFAULT 0,
     CONSTRAINT uq_trainer_user UNIQUE (user_id),
     CONSTRAINT fk_trainer_user FOREIGN KEY (user_id) REFERENCES users (id) ON DELETE CASCADE,
     CONSTRAINT fk_trainer_specialization FOREIGN KEY (specialization_id) REFERENCES training_type (id)

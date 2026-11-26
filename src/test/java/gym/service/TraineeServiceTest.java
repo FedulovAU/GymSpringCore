@@ -1,15 +1,14 @@
 package gym.service;
 
-import gym.data.entity.TraineeEntity;
-import gym.data.entity.UserEntity;
-import gym.data.storage.exception.ItemNotFoundException;
+import gym.data.TraineeEntity;
+import gym.data.UserEntity;
 import gym.dto.request.CreateTrainee;
 import gym.dto.request.UpdateTrainee;
+import gym.dto.response.Credentials;
 import gym.dto.response.Trainee;
-import gym.repository.trainee.TraineeRepository;
-import gym.repository.trainer.TrainerRepository;
-import gym.service.helper.PasswordGenerator;
-import gym.service.helper.UsernameGenerator;
+import gym.repository.TraineeRepository;
+import gym.service.exception.ProfileNotFoundException;
+import gym.service.helper.UserFactory;
 import gym.service.mapper.GymMapper;
 import gym.service.validation.RequestValidator;
 import org.junit.jupiter.api.BeforeEach;
@@ -19,175 +18,185 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
 import java.time.LocalDate;
-import java.util.List;
 import java.util.Optional;
-import java.util.function.UnaryOperator;
 
-import static org.junit.jupiter.api.Assertions.*;
-import static org.mockito.ArgumentMatchers.*;
-import static org.mockito.Mockito.*;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.argThat;
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.verifyNoInteractions;
+import static org.mockito.Mockito.when;
 
 @ExtendWith(MockitoExtension.class)
 class TraineeServiceTest {
 
     private static final LocalDate BIRTH_DATE = LocalDate.of(1990, 5, 17);
+    private static final String USERNAME = "John_Smith";
 
     @Mock
     private TraineeRepository traineeRepository;
     @Mock
-    private TrainerRepository trainerRepository;
-    @Mock
-    private PasswordGenerator passwordGenerator;
+    private UserFactory userFactory;
 
     private TraineeService service;
 
     @BeforeEach
     void setUp() {
-        service = new TraineeService();
-        service.setGymMapper(new GymMapper());
-        service.setRequestValidator(new RequestValidator());
-        service.setTraineeRepository(traineeRepository);
-        service.setTrainerRepository(trainerRepository);
-        service.setPasswordGenerator(passwordGenerator);
-        service.setUsernameGenerator(new UsernameGenerator());
+        service = new TraineeService(
+                traineeRepository,
+                userFactory,
+                new RequestValidator(),
+                new GymMapper());
     }
 
-    private static TraineeEntity trainee(long id) {
-        return new TraineeEntity(id, new UserEntity("John", "Smith", "John_Smith", 0L, "secret12345", true), BIRTH_DATE);
+    private static UserEntity user() {
+        return new UserEntity("John", "Smith", "secret12345", true, USERNAME, USERNAME, 0);
     }
 
-    private static Trainee traineeDto(long id) {
-        return new Trainee(id, "John", "Smith", "John_Smith", BIRTH_DATE);
+    private static TraineeEntity trainee() {
+        return new TraineeEntity(user(), BIRTH_DATE, "1 Main St");
     }
 
-    private void stubCreate(Optional<Long> traineeSuffix, Optional<Long> trainerSuffix, long assignedId) {
-        when(passwordGenerator.generate()).thenReturn("secret12345");
-        when(traineeRepository.getLastUsernameSuffix("John", "Smith")).thenReturn(traineeSuffix);
-        when(trainerRepository.getLastUsernameSuffix("John", "Smith")).thenReturn(trainerSuffix);
-        when(traineeRepository.add(any())).thenAnswer(inv -> inv.getArgument(0, TraineeEntity.class).withId(assignedId));
+    private void stubFound(TraineeEntity trainee) {
+        when(traineeRepository.findByUsername(USERNAME)).thenReturn(Optional.of(trainee));
     }
 
-    private void verifyCreateLookups() {
-        verify(passwordGenerator).generate();
-        verify(traineeRepository).getLastUsernameSuffix("John", "Smith");
-        verify(trainerRepository).getLastUsernameSuffix("John", "Smith");
-    }
-
-
-    @Test
-    void createTrainee_newName_addsTraineeWithBaseUsername() {
-        stubCreate(Optional.empty(), Optional.empty(), 1L);
-
-        Trainee result = service.createTrainee(new CreateTrainee("John", "Smith", BIRTH_DATE));
-
-        verifyCreateLookups();
-        verify(traineeRepository).add(argThat(t ->
-                t.getId() == null
-                && t.getBirthDate().equals(BIRTH_DATE)
-                && t.getUser().getUserName().equals("John_Smith")
-                && t.getUser().getUserNameSuffix() == 0L
-                && t.getUser().getFirstName().equals("John")
-                && t.getUser().getLastName().equals("Smith")
-                && t.getUser().getPassword().equals("secret12345")
-                && t.getUser().isActive()));
-        assertEquals(traineeDto(1L), result);
+    private void stubMissing() {
+        when(traineeRepository.findByUsername(USERNAME)).thenReturn(Optional.empty());
     }
 
     @Test
-    void createTrainee_traineeSuffixIsHigher_usesNextAfterIt() {
-        stubCreate(Optional.of(2L), Optional.of(0L), 3L);
+    void createTrainee_savesTraineeWithNewUser_returnsCredentials() {
+        when(userFactory.createUser("John", "Smith")).thenReturn(user());
 
-        Trainee result = service.createTrainee(new CreateTrainee("John", "Smith", BIRTH_DATE));
+        var request = new CreateTrainee("John", "Smith", BIRTH_DATE, "1 Main St");
+        Credentials result = service.createTrainee(request);
 
-        verifyCreateLookups();
-        verify(traineeRepository).add(argThat(t -> t.getUser().getUserName().equals("John_Smith_3")
-                && t.getUser().getUserNameSuffix() == 3L));
-        assertEquals(new Trainee(3L, "John", "Smith", "John_Smith_3", BIRTH_DATE), result);
+        var expectedCredentials = new Credentials(USERNAME, "secret12345");
+        assertEquals(expectedCredentials, result);
+        verify(traineeRepository).save(argThat(t -> t.getUser().getUsername().equals(USERNAME)
+                && t.getDateOfBirth().equals(BIRTH_DATE)
+                && t.getAddress().equals("1 Main St")));
     }
 
     @Test
-    void createTrainee_trainerSuffixIsHigher_usesNextAfterIt() {
-        stubCreate(Optional.of(0L), Optional.of(2L), 3L);
+    void createTrainee_invalidName_throwsBeforeTouchingDatabase() {
+        var request = new CreateTrainee("John1", "Smith", BIRTH_DATE, null);
+        assertThrows(IllegalArgumentException.class, () -> service.createTrainee(request));
 
-        Trainee result = service.createTrainee(new CreateTrainee("John", "Smith", BIRTH_DATE));
-
-        verifyCreateLookups();
-        verify(traineeRepository).add(argThat(t -> t.getUser().getUserName().equals("John_Smith_3")
-                && t.getUser().getUserNameSuffix() == 3L));
-        assertEquals(new Trainee(3L, "John", "Smith", "John_Smith_3", BIRTH_DATE), result);
+        verifyNoInteractions(traineeRepository, userFactory);
     }
 
     @Test
-    void createTrainee_invalidFirstName_throwsIllegalArgument() {
-        assertThrows(IllegalArgumentException.class,
-                () -> service.createTrainee(new CreateTrainee("John1", "Smith", BIRTH_DATE)));
+    void matchesCredentials_correctPassword_returnsTrue() {
+        stubFound(trainee());
 
-        verifyNoInteractions(traineeRepository, trainerRepository, passwordGenerator);
-    }
-
-
-    @Test
-    void updateTrainee_partialRequest_updatesUserAndTraineeFields() {
-        LocalDate newBirthDate = LocalDate.of(1991, 1, 1);
-        when(traineeRepository.update(eq(1L), any()))
-                .thenAnswer(inv -> inv.getArgument(1, UnaryOperator.class).apply(trainee(1L)));
-
-        Trainee result = service.updateTrainee(new UpdateTrainee(1L, null, "Brown", newBirthDate));
-
-        verify(traineeRepository).update(eq(1L), any());
-        // The user name stays the same when the last name changes.
-        assertEquals(new Trainee(1L, "John", "Brown", "John_Smith", newBirthDate), result);
+        assertTrue(service.matchesCredentials(USERNAME, "secret12345"));
     }
 
     @Test
-    void updateTrainee_futureBirthDate_throwsIllegalArgument() {
-        assertThrows(IllegalArgumentException.class,
-                () -> service.updateTrainee(new UpdateTrainee(1L, null, null, LocalDate.now().plusDays(1))));
+    void matchesCredentials_wrongPassword_returnsFalse() {
+        stubFound(trainee());
+
+        assertFalse(service.matchesCredentials(USERNAME, "wrong"));
+    }
+
+    @Test
+    void matchesCredentials_unknownUsername_returnsFalse() {
+        stubMissing();
+
+        assertFalse(service.matchesCredentials(USERNAME, "secret12345"));
+    }
+
+    @Test
+    void findByUsername_exists_returnsProfile() {
+        stubFound(trainee());
+
+        var expectedTrainee = new Trainee(USERNAME, "John", "Smith", BIRTH_DATE, "1 Main St", true);
+        assertEquals(Optional.of(expectedTrainee), service.findByUsername(USERNAME));
+    }
+
+    @Test
+    void findByUsername_missing_returnsEmpty() {
+        stubMissing();
+
+        assertTrue(service.findByUsername(USERNAME).isEmpty());
+    }
+
+    @Test
+    void changePassword_setsNewPasswordOnManagedEntity() {
+        TraineeEntity trainee = trainee();
+        stubFound(trainee);
+
+        service.changePassword(USERNAME, "newPassword1");
+
+        assertEquals("newPassword1", trainee.getUser().getPassword());
+    }
+
+    @Test
+    void changePassword_blankPassword_throwsBeforeTouchingDatabase() {
+        assertThrows(IllegalArgumentException.class, () -> service.changePassword(USERNAME, " "));
 
         verifyNoInteractions(traineeRepository);
     }
 
     @Test
-    void updateTrainee_traineeNotFound_propagates() {
-        when(traineeRepository.update(eq(1L), any())).thenThrow(new ItemNotFoundException("TraineeEntity", "1"));
+    void changePassword_missingTrainee_throwsProfileNotFound() {
+        stubMissing();
 
-        assertThrows(ItemNotFoundException.class,
-                () -> service.updateTrainee(new UpdateTrainee(1L, "Jack", null, null)));
-
-        verify(traineeRepository).update(eq(1L), any());
-    }
-
-
-    @Test
-    void deleteTraineeById_deletesTrainee() {
-        service.deleteTraineeById(1L);
-
-        verify(traineeRepository).deleteById(1L);
-    }
-
-
-    @Test
-    void findTraineeById_exists_returnsTrainee() {
-        when(traineeRepository.getById(1L)).thenReturn(Optional.of(trainee(1L)));
-
-        assertEquals(Optional.of(traineeDto(1L)), service.findTraineeById(1L));
-        verify(traineeRepository).getById(1L);
+        assertThrows(ProfileNotFoundException.class, () -> service.changePassword(USERNAME, "newPassword1"));
     }
 
     @Test
-    void findTraineeById_missing_returnsEmpty() {
-        when(traineeRepository.getById(1L)).thenReturn(Optional.empty());
+    void updateTrainee_partialRequest_changesProvidedFieldsAndKeepsUsername() {
+        stubFound(trainee());
+        LocalDate newBirthDate = LocalDate.of(1991, 1, 1);
 
-        assertTrue(service.findTraineeById(1L).isEmpty());
-        verify(traineeRepository).getById(1L);
+        var request = new UpdateTrainee(USERNAME, null, "Brown", newBirthDate, null);
+        Trainee result = service.updateTrainee(request);
+
+        var expectedTrainee = new Trainee(USERNAME, "John", "Brown", newBirthDate, "1 Main St", true);
+        assertEquals(expectedTrainee, result);
     }
 
+    @Test
+    void updateTrainee_missingTrainee_throwsProfileNotFound() {
+        stubMissing();
+
+        var request = new UpdateTrainee(USERNAME, "Jack", null, null, null);
+        assertThrows(ProfileNotFoundException.class, () -> service.updateTrainee(request));
+    }
 
     @Test
-    void getAll_mapsAllTrainees() {
-        when(traineeRepository.getAll()).thenReturn(List.of(trainee(1L), trainee(2L)));
+    void setActive_false_deactivatesUser() {
+        TraineeEntity trainee = trainee();
+        stubFound(trainee);
 
-        assertEquals(List.of(traineeDto(1L), traineeDto(2L)), service.getAll());
-        verify(traineeRepository).getAll();
+        service.setActive(USERNAME, false);
+
+        assertFalse(trainee.getUser().isActive());
+    }
+
+    @Test
+    void deleteByUsername_exists_deletesTrainee() {
+        TraineeEntity trainee = trainee();
+        stubFound(trainee);
+
+        service.deleteByUsername(USERNAME);
+
+        verify(traineeRepository).delete(trainee);
+    }
+
+    @Test
+    void deleteByUsername_missing_throwsAndDeletesNothing() {
+        stubMissing();
+
+        assertThrows(ProfileNotFoundException.class, () -> service.deleteByUsername(USERNAME));
+
+        verify(traineeRepository, never()).delete(any());
     }
 }

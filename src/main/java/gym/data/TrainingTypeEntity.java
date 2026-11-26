@@ -1,5 +1,6 @@
-package gym.data.entity;
+package gym.data;
 
+import gym.enums.TrainingType;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.EnumType;
@@ -24,9 +25,4 @@ public class TrainingTypeEntity {
     @Column(name = "training_type_name", nullable = false, unique = true, length = 50)
     private TrainingType trainingType;
 
-    public enum TrainingType {
-        BODY_BUILDING,
-        CROSSFIT,
-        FITNESS
-    }
 }

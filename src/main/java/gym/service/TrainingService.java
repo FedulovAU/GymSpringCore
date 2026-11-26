@@ -1,112 +1,131 @@
 package gym.service;
 
-import gym.data.entity.TraineeEntity;
-import gym.data.entity.TrainerEntity;
-import gym.data.entity.TrainingEntity;
-import gym.dto.request.ScheduleTraining;
-import gym.service.validation.RequestValidator;
+import gym.data.TraineeEntity;
+import gym.data.TrainerEntity;
+import gym.data.TrainingEntity;
+import gym.dto.request.AddTraining;
+import gym.dto.request.TraineeTrainingsFilter;
+import gym.dto.request.TrainerTrainingsFilter;
 import gym.dto.response.Training;
-import gym.repository.trainee.TraineeRepository;
-import gym.repository.trainer.TrainerRepository;
+import gym.enums.TrainingType;
+import gym.repository.TraineeRepository;
+import gym.repository.TrainerRepository;
 import gym.repository.TrainingRepository;
+import gym.repository.TrainingTypeRepository;
 import gym.service.exception.CannotScheduleTrainingException;
+import gym.service.exception.ProfileNotFoundException;
 import gym.service.mapper.GymMapper;
+import gym.service.validation.RequestValidator;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
+import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.List;
-
+import java.util.Optional;
 
 @Slf4j
 @Service
 public class TrainingService {
+    private final TrainingRepository trainingRepository;
+    private final TraineeRepository traineeRepository;
+    private final TrainerRepository trainerRepository;
+    private final RequestValidator requestValidator;
+    private final GymMapper gymMapper;
 
-    private TrainingRepository trainingRepository;
-    private TrainerRepository trainerRepository;
-    private TraineeRepository traineeRepository;
-    private GymMapper gymMapper;
-    private RequestValidator requestValidator;
-
-    @Autowired
-    public void setGymMapper(GymMapper gymMapper) {
+    public TrainingService(
+            TrainingRepository trainingRepository,
+            TraineeRepository traineeRepository,
+            TrainerRepository trainerRepository,
+            RequestValidator requestValidator,
+            GymMapper gymMapper) {
+        this.trainingRepository = trainingRepository;
+        this.traineeRepository = traineeRepository;
+        this.trainerRepository = trainerRepository;
+        this.requestValidator = requestValidator;
         this.gymMapper = gymMapper;
     }
 
-    @Autowired
-    public void setRequestValidator(RequestValidator requestValidator) {
-        this.requestValidator = requestValidator;
-    }
+    @Transactional
+    public Training addTraining(AddTraining request) {
+        requestValidator.validateAddTrainingRequest(request);
 
-    @Autowired
-    public void setTrainingRepository(TrainingRepository trainingRepository) {
-        this.trainingRepository = trainingRepository;
-    }
+        TraineeEntity trainee = getActiveTrainee(request.traineeUsername());
+        TrainerEntity trainer = getActiveTrainer(request.trainerUsername());
 
-    @Autowired
-    public void setTrainerRepository(TrainerRepository trainerRepository) {
-        this.trainerRepository = trainerRepository;
-    }
-
-    @Autowired
-    public void setTraineeRepository(TraineeRepository traineeRepository) {
-        this.traineeRepository = traineeRepository;
-    }
-
-
-    public Training scheduleTraining(ScheduleTraining request) {
-        requestValidator.validateScheduleTrainingRequest(request);
-
-        TrainerEntity trainer = findActiveTrainerById(request.trainerId());
-        TraineeEntity trainee = findActiveTraineeById(request.traineeId());
-
-        ensureNoOverlap(trainingRepository.getByTrainerId(trainer.getId()), request, "Trainer");
-        ensureNoOverlap(trainingRepository.getByTraineeId(trainee.getId()), request, "Trainee");
-
-        TrainingEntity training = trainingRepository.add(
-                gymMapper.toTrainingEntity(request, trainee, trainer));
-
-        var result = gymMapper.toTraining(training);
-        log.info("scheduleTraining completed, traineeId={}, trainerId={}.", result.traineeId(), result.trainerId());
-        return result;
-    }
-
-
-    public List<Training> getAll() {
-        return trainingRepository.getAll().stream().map(gymMapper::toTraining).toList();
-    }
-
-    private TrainerEntity findActiveTrainerById(long id) {
-        TrainerEntity trainer = trainerRepository.getById(id)
-                .orElseThrow(() -> new CannotScheduleTrainingException("Trainer with ID " + id + " does not exist."));
-        if (!trainer.getUser().isActive()) {
-            throw new CannotScheduleTrainingException("Trainer with ID " + id + " is not active.");
+        LocalDateTime start = request.trainingDate();
+        LocalDateTime end = start.plus(request.duration());
+        if (trainingRepository.existsOverlappingForTrainer(trainer, start, end)) {
+            throw new CannotScheduleTrainingException(
+                    "Trainer '" + request.trainerUsername() + "' already has a training at that time.");
         }
-        return trainer;
+        if (trainingRepository.existsOverlappingForTrainee(trainee, start, end)) {
+            throw new CannotScheduleTrainingException(
+                    "Trainee '" + request.traineeUsername() + "' already has a training at that time.");
+        }
+
+        TrainingEntity training = trainingRepository.save(new TrainingEntity(
+                trainee,
+                trainer,
+                request.trainingName(),
+                trainer.getSpecialization(),
+                start,
+                Math.toIntExact(request.duration().toMinutes())));
+
+        log.info("addTraining completed, trainee={}, trainer={}.", request.traineeUsername(), request.trainerUsername());
+        return gymMapper.toTraining(training);
     }
 
-    private TraineeEntity findActiveTraineeById(long id) {
-        TraineeEntity trainee = traineeRepository.getById(id)
-                .orElseThrow(() -> new CannotScheduleTrainingException("Trainee with ID " + id + " does not exist."));
+    @Transactional(readOnly = true)
+    public List<Training> getTraineeTrainings(String traineeUsername, TraineeTrainingsFilter filter) {
+
+        return trainingRepository.findTraineeTrainings(
+                        traineeUsername,
+                        startOfDay(filter.fromDate()),
+                        startOfNextDay(filter.toDate()),
+                        filter.trainerName(),
+                        filter.trainingType())
+                .stream()
+                .map(gymMapper::toTraining)
+                .toList();
+    }
+
+    @Transactional(readOnly = true)
+    public List<Training> getTrainerTrainings(String trainerUsername, TrainerTrainingsFilter filter) {
+        return trainingRepository.findTrainerTrainings(
+                        trainerUsername,
+                        startOfDay(filter.fromDate()),
+                        startOfNextDay(filter.toDate()),
+                        filter.traineeName())
+                .stream()
+                .map(gymMapper::toTraining)
+                .toList();
+    }
+
+    private TraineeEntity getActiveTrainee(String username) {
+        TraineeEntity trainee = traineeRepository.findByUsername(username)
+                .orElseThrow(() -> new ProfileNotFoundException("Trainee '" + username + "' not found."));
         if (!trainee.getUser().isActive()) {
-            throw new CannotScheduleTrainingException("Trainee with ID " + id + " is not active.");
+            throw new CannotScheduleTrainingException("Trainee '" + username + "' is not active.");
         }
         return trainee;
     }
 
-    private static void ensureNoOverlap(List<TrainingEntity> existing, ScheduleTraining request, String who) {
-        LocalDateTime newTrainingStart = request.trainingDate();
-        LocalDateTime newTrainingEnd = newTrainingStart.plus(request.duration());
-
-        for (TrainingEntity training : existing) {
-            LocalDateTime existingStart = training.getTrainingDate();
-            LocalDateTime existingEnd = existingStart.plus(training.getTrainingDuration());
-
-            if (newTrainingStart.isBefore(existingEnd) && newTrainingEnd.isAfter(existingStart)) {
-                throw new CannotScheduleTrainingException(who + " already has a training at that time: '"
-                        + training.getTrainingName() + "' (" + existingStart + " - " + existingEnd + ").");
-            }
+    private TrainerEntity getActiveTrainer(String username) {
+        TrainerEntity trainer = trainerRepository.findByUsername(username)
+                .orElseThrow(() -> new ProfileNotFoundException("Trainer '" + username + "' not found."));
+        if (!trainer.getUser().isActive()) {
+            throw new CannotScheduleTrainingException("Trainer '" + username + "' is not active.");
         }
+        return trainer;
+    }
+
+    private static LocalDateTime startOfDay(LocalDate date) {
+        return date == null ? null : date.atStartOfDay();
+    }
+
+    private static LocalDateTime startOfNextDay(LocalDate date) {
+        return date == null ? null : date.plusDays(1).atStartOfDay();
     }
 }

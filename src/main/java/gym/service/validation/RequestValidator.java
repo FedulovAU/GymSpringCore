@@ -1,19 +1,20 @@
 package gym.service.validation;
 
+import gym.dto.request.AddTraining;
 import gym.dto.request.CreateTrainee;
 import gym.dto.request.CreateTrainer;
-import gym.dto.request.ScheduleTraining;
 import gym.dto.request.UpdateTrainee;
 import gym.dto.request.UpdateTrainer;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
 
 import java.time.Duration;
-
+import java.time.LocalDate;
+import java.time.LocalDateTime;
 
 @Component
-public final class RequestValidator {
-    private static final String userNamePattern = "\\p{L}+";
+public class RequestValidator {
+    private static final String NAME_PATTERN = "\\p{L}+";
 
     @Value("${trainingDurationMinutesMin}")
     private int trainingDurationMinutesMin;
@@ -24,55 +25,67 @@ public final class RequestValidator {
     @Value("${minTraineeAge}")
     private int minTraineeAge;
 
-    public void validateUpdateTraineeRequest(UpdateTrainee request) {
-
-        if (request.firstName() != null && !request.firstName().matches(userNamePattern)) {
-            throw new IllegalArgumentException("First name contains invalid characters.");
-        }
-
-        if (request.lastName() != null && !request.lastName().matches(userNamePattern)) {
-            throw new IllegalArgumentException("Last name contains invalid characters.");
-        }
-
-        if (request.birthDate() != null && request.birthDate().isAfter(java.time.LocalDate.now().minusYears(minTraineeAge))) {
-            throw new IllegalArgumentException("Trainee must be at least " + minTraineeAge + " years old.");
-        }
+    public void validateCreateTraineeRequest(CreateTrainee request) {
+        validateRequiredName(request.firstName(), "First name");
+        validateRequiredName(request.lastName(), "Last name");
+        validateDateOfBirth(request.dateOfBirth());
     }
 
-    public void validateCreateTraineeRequest(CreateTrainee request) {
-        validateFirstLastName(request.firstName(), request.lastName());
-
-        if (request.birthDate() != null && request.birthDate().isAfter(java.time.LocalDate.now().minusYears(minTraineeAge))) {
-            throw new IllegalArgumentException("Trainee must be at least " + minTraineeAge + " years old.");
-        }
+    public void validateUpdateTraineeRequest(UpdateTrainee request) {
+        validateOptionalName(request.firstName(), "First name");
+        validateOptionalName(request.lastName(), "Last name");
+        validateDateOfBirth(request.dateOfBirth());
     }
 
     public void validateCreateTrainerRequest(CreateTrainer request) {
-        validateFirstLastName(request.firstName(), request.lastName());
+        validateRequiredName(request.firstName(), "First name");
+        validateRequiredName(request.lastName(), "Last name");
+        if (request.specialization() == null) {
+            throw new IllegalArgumentException("Specialization is required.");
+        }
     }
 
     public void validateUpdateTrainerRequest(UpdateTrainer request) {
-        validateFirstLastName(request.firstName(), request.lastName());
+        validateOptionalName(request.firstName(), "First name");
+        validateOptionalName(request.lastName(), "Last name");
     }
 
-    public void validateFirstLastName(String firstName, String lastName) {
-
-        if (firstName != null && !firstName.matches(userNamePattern)) {
-            throw new IllegalArgumentException("First name contains invalid characters.");
-        }
-
-        if (lastName != null && !lastName.matches(userNamePattern)) {
-            throw new IllegalArgumentException("Last name contains invalid characters.");
+    public void validatePassword(String password) {
+        if (password == null || password.isBlank()) {
+            throw new IllegalArgumentException("Password must not be blank.");
         }
     }
 
-    public void validateScheduleTrainingRequest(ScheduleTraining request) {
-        if (request.trainingDate().isBefore(java.time.LocalDateTime.now().plusMinutes(scheduleGapMinutesMin))) {
-            throw new IllegalArgumentException("Training date cannot be scheduled in the past or within " + scheduleGapMinutesMin + " minutes from now.");
+    public void validateAddTrainingRequest(AddTraining request) {
+        if (request.trainingName() == null || request.trainingName().isBlank()) {
+            throw new IllegalArgumentException("Training name must not be blank.");
+        }
+
+        if (request.trainingDate().isBefore(LocalDateTime.now().plusMinutes(scheduleGapMinutesMin))) {
+            throw new IllegalArgumentException("Training date cannot be scheduled in the past or within "
+                    + scheduleGapMinutesMin + " minutes from now.");
         }
 
         if (request.duration() == null || request.duration().compareTo(Duration.ofMinutes(trainingDurationMinutesMin)) < 0) {
             throw new IllegalArgumentException("Training duration must be at least " + trainingDurationMinutesMin + " minutes.");
+        }
+    }
+
+    private void validateDateOfBirth(LocalDate dateOfBirth) {
+        if (dateOfBirth != null && dateOfBirth.isAfter(LocalDate.now().minusYears(minTraineeAge))) {
+            throw new IllegalArgumentException("Trainee must be at least " + minTraineeAge + " years old.");
+        }
+    }
+
+    private static void validateRequiredName(String name, String fieldName) {
+        if (name == null || !name.matches(NAME_PATTERN)) {
+            throw new IllegalArgumentException(fieldName + " is required and must contain only letters.");
+        }
+    }
+
+    private static void validateOptionalName(String name, String fieldName) {
+        if (name != null && !name.matches(NAME_PATTERN)) {
+            throw new IllegalArgumentException(fieldName + " must contain only letters.");
         }
     }
 }

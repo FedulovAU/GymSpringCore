@@ -1,15 +1,15 @@
 package gym.dto.response;
 
-import gym.dto.enums.TrainingType;
+import gym.enums.TrainingType;
 
 import java.time.Duration;
 import java.time.LocalDateTime;
 
 public record Training(
-        Long traineeId,
-        Long trainerId,
+        String traineeUsername,
+        String trainerUsername,
         String trainingName,
         TrainingType trainingType,
         LocalDateTime trainingDate,
-        Duration trainingDuration
-) {}
+        Duration trainingDuration) {
+}

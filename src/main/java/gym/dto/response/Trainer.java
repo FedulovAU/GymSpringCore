@@ -1,11 +1,11 @@
 package gym.dto.response;
 
-import gym.dto.enums.TrainingType;
+import gym.enums.TrainingType;
 
 public record Trainer(
-        Long id,
+        String username,
         String firstName,
         String lastName,
-        String userName,
-        TrainingType specialization
-) {}
+        TrainingType specialization,
+        boolean isActive) {
+}

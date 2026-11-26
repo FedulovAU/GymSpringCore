@@ -1,18 +1,20 @@
 package gym;
 
 import gym.configuration.AppConfig;
-import gym.data.storage.exception.ItemAlreadyExistsException;
-import gym.data.storage.exception.ItemNotFoundException;
-import gym.dto.enums.TrainingType;
+import gym.enums.TrainingType;
+import gym.dto.request.AddTraining;
 import gym.dto.request.CreateTrainee;
 import gym.dto.request.CreateTrainer;
-import gym.dto.request.ScheduleTraining;
+import gym.dto.request.TraineeTrainingsFilter;
+import gym.dto.request.TrainerTrainingsFilter;
 import gym.dto.request.UpdateTrainee;
 import gym.dto.request.UpdateTrainer;
+import gym.dto.response.Credentials;
 import gym.service.TraineeService;
 import gym.service.TrainerService;
 import gym.service.TrainingService;
 import gym.service.exception.CannotScheduleTrainingException;
+import gym.service.exception.ProfileNotFoundException;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.context.annotation.AnnotationConfigApplicationContext;
 
@@ -23,13 +25,12 @@ import java.time.LocalDateTime;
 @Slf4j
 public class Program {
 
-    // IDs from the preloaded snapshot in src/main/resources/snapshot.
-    private static final long TRAINER_MARK_BROWN_ID = 2;
-    private static final long TRAINEE_JOHN_SMITH_ID = 1;
-    private static final long TRAINEE_MIA_WONG_ID = 3;
+    private static final String SEEDED_TRAINEE = "John_Smith";
+    private static final String SEEDED_TRAINER = "Mark_Brown";
+    private static final String SEEDED_TRAINEE_TO_DELETE = "Mia_Wong";
 
-    public static void main(String[] args){
-        try(var context = new AnnotationConfigApplicationContext(AppConfig.class)){
+    public static void main(String[] args) {
+        try (var context = new AnnotationConfigApplicationContext(AppConfig.class)) {
             runUseCase(
                     context.getBean(TraineeService.class),
                     context.getBean(TrainerService.class),
@@ -39,47 +40,46 @@ public class Program {
 
     private static void runUseCase(TraineeService traineeService, TrainerService trainerService, TrainingService trainingService) {
         try {
-            var trainee = traineeService.createTrainee(new CreateTrainee(
-                    "Kate",
-                    "Miller",
-                    LocalDate.of(1998, 4, 12)));
-            
-            var trainer = trainerService.createTrainer(new CreateTrainer(
-                    "Tom",
-                    "Reed",
-                    TrainingType.FITNESS));
-            
-            trainingService.scheduleTraining(new ScheduleTraining(
-                    trainee.id(),
-                    trainer.id(),
-                    "Intro session",
-                    LocalDateTime.of(2026, 12, 5, 18, 0), Duration.ofHours(1)));
+            Credentials trainee = traineeService.createTrainee(
+                    new CreateTrainee("John", "Smith", LocalDate.of(1998, 4, 12), "5 Elm St"));
+            Credentials trainer = trainerService.createTrainer(
+                    new CreateTrainer("Tom", "Reed", TrainingType.FITNESS));
+            log.info("Created trainee {} and trainer {}.", trainee.username(), trainer.username());
 
-            trainerService.updateTrainer(new UpdateTrainer(
-                    TRAINER_MARK_BROWN_ID,
-                    null,
-                    null,
-                    TrainingType.CROSSFIT));
-            
-            traineeService.updateTrainee(new UpdateTrainee(
-                    TRAINEE_JOHN_SMITH_ID,
-                    null,
-                    "Smithson", 
-                    null));
+            log.info("Trainee credentials match: {}.", traineeService.matchesCredentials(trainee.username(), trainee.password()));
+            log.info("Trainer credentials match: {}.", trainerService.matchesCredentials(trainer.username(), trainer.password()));
 
+            traineeService.findByUsername(trainee.username()).ifPresent(t -> log.info("Trainee profile: {}.", t));
+            trainerService.findByUsername(trainer.username()).ifPresent(t -> log.info("Trainer profile: {}.", t));
 
-            traineeService.deleteTraineeById(TRAINEE_MIA_WONG_ID);
+            traineeService.changePassword(trainee.username(), "newTraineePassword");
+            trainerService.changePassword(trainer.username(), "newTrainerPassword");
 
-            trainerService.getAll().forEach(t -> log.info("Trainer: id={}, specialization={}", t.id(), t.specialization()));
-            traineeService.getAll().forEach(t -> log.info("Trainee: id={}", t.id()));
-            trainingService.getAll().forEach(t -> log.info("Training: traineeId={}, trainerId={}", t.traineeId(), t.trainerId()));
-            
+            traineeService.updateTrainee(new UpdateTrainee(SEEDED_TRAINEE, null, "Smithson", null, "1 New Rd"));
+            trainerService.updateTrainer(new UpdateTrainer(SEEDED_TRAINER, null, null, TrainingType.CROSSFIT));
+
+            traineeService.setActive(SEEDED_TRAINEE, false);
+            traineeService.setActive(SEEDED_TRAINEE, true);
+            trainerService.setActive(SEEDED_TRAINER, false);
+            trainerService.setActive(SEEDED_TRAINER, true);
+
+            traineeService.deleteByUsername(SEEDED_TRAINEE_TO_DELETE);
+
+            LocalDateTime nextWeek = LocalDate.now().plusWeeks(1).atTime(18, 0);
+            trainingService.addTraining(new AddTraining(
+                    trainee.username(), trainer.username(), "Intro session", nextWeek, Duration.ofHours(1)));
+
+            trainingService.getTraineeTrainings(SEEDED_TRAINEE, new TraineeTrainingsFilter(null, null, null, null))
+                    .forEach(t -> log.info("Trainee training: {}.", t));
+            trainingService.getTrainerTrainings(trainer.username(), new TrainerTrainingsFilter(null, null, "John"))
+                    .forEach(t -> log.info("Trainer training: {}.", t));
+
+            trainerService.getTrainersNotAssignedToTrainee(SEEDED_TRAINEE)
+                    .forEach(t -> log.info("Trainer not assigned to {}: {}.", SEEDED_TRAINEE, t));
         } catch (CannotScheduleTrainingException e) {
             log.error("Cannot schedule training: {}", e.getMessage(), e);
-        } catch (ItemNotFoundException e) {
-            log.error("Item not found: {}", e.getMessage(), e);
-        } catch (ItemAlreadyExistsException e) {
-            log.error("Item already exists: {}", e.getMessage(), e);
+        } catch (ProfileNotFoundException e) {
+            log.error("Profile not found: {}", e.getMessage(), e);
         } catch (RuntimeException e) {
             log.error("Unexpected error.", e);
         }

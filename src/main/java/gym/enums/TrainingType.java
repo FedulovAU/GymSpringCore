@@ -1,7 +1,7 @@
-package gym.dto.enums;
+package gym.enums;
 
 public enum TrainingType {
     BODY_BUILDING,
     CROSSFIT,
-    FITNESS;
+    FITNESS
 }

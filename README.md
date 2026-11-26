@@ -65,9 +65,9 @@ entity class:
 
 | File | Contents |
 |---|---|
-| `gym.data.entity.TraineeEntity.json` | Trainees: `id`, `birthDate` and a nested `user`. |
-| `gym.data.entity.TrainerEntity.json` | Trainers: `id`, `specialization` and a nested `user`. |
-| `gym.data.entity.TrainingEntity.json` | Trainings, referencing a trainee and a trainer by ID. |
+| `gym.data.TraineeEntity` | Trainees: `id`, `birthDate` and a nested `user`. |
+| `gym.data.TrainerEntity` | Trainers: `id`, `specialization` and a nested `user`. |
+| `gym.data.TrainingEntity` | Trainings, referencing a trainee and a trainer by ID. |
 
 - The nested `user` holds the name, username, username suffix, password and active flag.
 - Trainees and trainers have separate IDs, so a trainee and a trainer can have the same ID.
